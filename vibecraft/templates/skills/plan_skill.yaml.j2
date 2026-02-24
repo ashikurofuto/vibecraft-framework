@@ -1,0 +1,35 @@
+name: plan_skill
+description: Break the project into small implementable phases
+
+agents:
+  - planner
+  - plan_reviewer
+
+inputs:
+  - research: docs/research.md
+  - design: docs/design/architecture.md
+  - stack: docs/stack.md
+
+steps:
+  - name: plan
+    agent: planner
+    description: >
+      Read docs/research.md and docs/design/architecture.md.
+      Break the project into phases of 1-3 days each.
+      Output one file per phase: docs/plans/phase_N.md.
+      Include: goal, scope, tasks, test scenarios, definition of done.
+    output: docs/plans/
+
+  - name: review_plans
+    agent: plan_reviewer
+    description: >
+      Review all phase plans for: completeness, correct ordering,
+      no hidden dependencies, testability, and alignment with architecture.
+      Approve or request changes.
+    reads: docs/plans/
+    gate: human_approval
+
+constraints:
+  - "Phases must be independently implementable"
+  - "Each phase must have a clear definition of done"
+  - "No phase should take longer than 3 days to implement"

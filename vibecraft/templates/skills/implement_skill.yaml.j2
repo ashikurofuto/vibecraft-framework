@@ -1,0 +1,54 @@
+name: implement_skill
+description: TDD implementation cycle for a single phase
+
+agents:
+  - tdd_writer
+  - implementer
+  - code_reviewer
+
+inputs:
+  - phase: required
+  - plan: docs/plans/phase_{{ "{{phase}}" }}.md
+  - stack: docs/stack.md
+  - context: docs/context.md
+  - architecture: docs/design/architecture.md
+
+steps:
+  - name: write_tests
+    agent: tdd_writer
+    description: >
+      Read the phase plan and write all tests for this phase.
+      Output tests to src/tests/phase_{{ "{{phase}}" }}/.
+      Do not write any implementation code.
+    output: src/tests/phase_{{ "{{phase}}" }}/
+    gate: human_approval
+
+  - name: implement
+    agent: implementer
+    description: >
+      Read the tests in src/tests/phase_{{ "{{phase}}" }}/ and write implementation
+      that makes them pass. Do not modify any test files.
+      Follow the architecture from docs/design/architecture.md.
+    reads:
+      - src/tests/phase_{{ "{{phase}}" }}/
+    output: src/
+    constraint:
+      immutable: src/tests/
+
+  - name: review
+    agent: code_reviewer
+    description: >
+      Review the implementation for quality, security,
+      architecture compliance and test integrity.
+    reads:
+      - src/
+      - src/tests/phase_{{ "{{phase}}" }}/
+      - docs/design/architecture.md
+    on_fail:
+      loop_back_to: implement
+      max_retries: 3
+
+constraints:
+  - "src/tests/ is immutable after tdd_writer approval"
+  - "implementer must not modify test files under any circumstances"
+  - "all ADR decisions in docs/design/architecture.md must be followed"
