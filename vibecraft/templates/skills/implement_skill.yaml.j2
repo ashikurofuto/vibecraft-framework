@@ -8,7 +8,7 @@ agents:
 
 inputs:
   - phase: required
-  - plan: docs/plans/phase_{{ "{{phase}}" }}.md
+  - plan: docs/plans/phase_{phase}.md
   - stack: docs/stack.md
   - context: docs/context.md
   - architecture: docs/design/architecture.md
@@ -18,19 +18,19 @@ steps:
     agent: tdd_writer
     description: >
       Read the phase plan and write all tests for this phase.
-      Output tests to src/tests/phase_{{ "{{phase}}" }}/.
+      Output tests to src/tests/phase_{phase}/.
       Do not write any implementation code.
-    output: src/tests/phase_{{ "{{phase}}" }}/
+    output: src/tests/phase_{phase}/
     gate: human_approval
 
   - name: implement
     agent: implementer
     description: >
-      Read the tests in src/tests/phase_{{ "{{phase}}" }}/ and write implementation
+      Read the tests in src/tests/phase_{phase}/ and write implementation
       that makes them pass. Do not modify any test files.
       Follow the architecture from docs/design/architecture.md.
     reads:
-      - src/tests/phase_{{ "{{phase}}" }}/
+      - src/tests/phase_{phase}/
     output: src/
     constraint:
       immutable: src/tests/
@@ -42,7 +42,7 @@ steps:
       architecture compliance and test integrity.
     reads:
       - src/
-      - src/tests/phase_{{ "{{phase}}" }}/
+      - src/tests/phase_{phase}/
       - docs/design/architecture.md
     on_fail:
       loop_back_to: implement

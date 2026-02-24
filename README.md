@@ -13,8 +13,8 @@ from two files: `research.md` and `stack.md`.
 research → design → plan → implement (TDD) → review
 ```
 
-Each phase is driven by specialised agents.  
-Skills orchestrate which agents run and in what order.  
+Each phase is driven by specialised agents.
+Skills orchestrate which agents run and in what order.
 Context is always documented so you can open a new chat at any phase.
 
 ---
@@ -27,9 +27,19 @@ pip install -e .
 
 ---
 
-## Usage
+## Quick Start
 
-### 1. Create your input files
+### 1. Check your environment first
+
+```bash
+vibecraft doctor
+```
+
+Verifies Python version, required packages, Qwen CLI availability, and project structure.
+
+---
+
+### 2. Create your input files
 
 **`research.md`** — describe your project idea, goals, users, risks.
 
@@ -39,10 +49,16 @@ See `examples/` for reference files.
 
 ---
 
-### 2. Initialise the project
+### 3. Initialise the project
 
 ```bash
 vibecraft init --research research.md --stack stack.md
+```
+
+Optional: add custom agents via `--agents`:
+
+```bash
+vibecraft init --research research.md --stack stack.md --agents examples/custom_agents.yaml
 ```
 
 This generates:
@@ -54,12 +70,14 @@ This generates:
 │   ├── tdd_writer.md
 │   ├── implementer.md
 │   └── ...
-└── skills/
-    ├── research_skill.yaml
-    ├── design_skill.yaml
-    ├── plan_skill.yaml
-    ├── implement_skill.yaml
-    └── review_skill.yaml
+├── skills/
+│   ├── research_skill.yaml
+│   ├── design_skill.yaml
+│   ├── plan_skill.yaml
+│   ├── implement_skill.yaml
+│   └── review_skill.yaml
+├── prompts/               # versioned prompt history (timestamped)
+└── snapshots/             # rollback snapshots per skill run
 
 docs/
 ├── context.md             # paste this into any new chat
@@ -74,22 +92,38 @@ src/
 
 ---
 
-### 3. Run a skill
+### 4. Run a skill
 
 ```bash
-vibecraft run research     # builds prompt → copies to clipboard
-vibecraft run design       # produces C4 architecture + ADRs
-vibecraft run plan         # breaks into phases
+vibecraft run research
+vibecraft run design
+vibecraft run plan
 vibecraft run implement --phase 1
 vibecraft run review
 ```
 
-Vibecraft builds the full prompt (skill + agents + context) and copies it to
-your clipboard. Paste it into Qwen (or any LLM chat) to run the skill.
+#### Dry-run mode (no LLM required)
+
+If you want to use a different LLM (GPT, Claude, Gemini, etc.), use `--dry-run`:
+
+```bash
+vibecraft run design --dry-run
+```
+
+This builds the full prompt and copies it to your clipboard.
+Paste it into any chat interface manually.
+
+You can also set the backend via environment variable:
+
+```bash
+VIBECRAFT_BACKEND=clipboard vibecraft run design   # same as --dry-run
+VIBECRAFT_BACKEND=echo      vibecraft run design   # test stub
+VIBECRAFT_BACKEND=qwen      vibecraft run design   # default Qwen CLI
+```
 
 ---
 
-### 4. Check project status
+### 5. Check project status
 
 ```bash
 vibecraft status
@@ -97,14 +131,59 @@ vibecraft status
 
 ---
 
-### 5. Continue in a new chat
+### 6. Continue in a new chat
 
 ```bash
-vibecraft context                         # copies context.md to clipboard
-vibecraft context --skill implement       # context + skill prompt
+vibecraft context                        # copies context.md to clipboard
+vibecraft context --skill implement      # context + skill prompt
 ```
 
-Paste into a new Qwen chat — the agent knows exactly where you are.
+Paste into a new LLM chat — the agent knows exactly where you are.
+
+---
+
+### 7. Roll back a skill run
+
+Every `vibecraft run` takes a snapshot before executing.
+To undo a run that produced bad output:
+
+```bash
+vibecraft snapshots              # list available snapshots
+vibecraft rollback               # restore latest snapshot (interactive)
+vibecraft rollback 1             # restore second-latest
+vibecraft rollback design        # restore most recent 'design' snapshot
+```
+
+---
+
+### 8. Export the project
+
+```bash
+vibecraft export                        # creates docs/project_summary.md
+vibecraft export --format zip           # creates a portable archive
+```
+
+---
+
+## Custom Agents
+
+Define project-specific agents in `agents.yaml` (see `examples/custom_agents.yaml`):
+
+```yaml
+- name: data_engineer
+  triggers: [database, etl, pipeline]
+
+- name: ml_engineer
+  triggers: [machine learning, pytorch]
+```
+
+Pass it to `init`:
+
+```bash
+vibecraft init -r research.md -s stack.md --agents agents.yaml
+```
+
+Agents matching any trigger keyword (from research.md or stack.md) are included automatically.
 
 ---
 
@@ -121,9 +200,19 @@ These are enforced at the agent level and should be enforced by you as the human
 
 ---
 
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `VIBECRAFT_BACKEND` | `qwen` | LLM backend: `qwen`, `clipboard`, `echo` |
+| `VIBECRAFT_QWEN_CMD` | `qwen` | Path/name of Qwen CLI binary |
+| `EDITOR` / `VISUAL` | `nano` | Editor opened by `[e]` at human gate |
+
+---
+
 ## Roadmap
 
-- `v0.1` — init, run, status, context (current)
-- `v0.2` — git hooks to enforce test immutability
-- `v0.3` — Qwen CLI direct subprocess adapter
+- `v0.1` — init, run, status, context
+- `v0.2` — doctor, rollback, export, dry-run, adapter factory, custom agents, prompt versioning ← **current**
+- `v0.3` — git hooks to enforce test immutability
 - `v0.4` — multi-project workspace support
