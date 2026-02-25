@@ -6,7 +6,6 @@ Checks everything that could silently break before a user runs a skill.
 
 import importlib
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -35,7 +34,6 @@ def run_doctor(project_root: Path | None = None):
     all_ok = True
     all_ok &= _check_python_version()
     all_ok &= _check_packages()
-    all_ok &= _check_qwen_cli()
 
     if project_root:
         all_ok &= _check_project_structure(project_root)
@@ -43,10 +41,10 @@ def run_doctor(project_root: Path | None = None):
 
     console.print()
     if all_ok:
-        console.print("[bold green]✓ Everything looks good![/bold green]\n")
+        console.print("[bold green][OK] Everything looks good![/bold green]\n")
     else:
         console.print(
-            "[bold yellow]⚠ Some issues found — see above.[/bold yellow]\n"
+            "[bold yellow][WARN] Some issues found - see above.[/bold yellow]\n"
         )
 
     return all_ok
@@ -80,24 +78,6 @@ def _check_packages() -> bool:
             _row("Package", pkg, False, f"pip install {install_name}")
             all_ok = False
     return all_ok
-
-
-def _check_qwen_cli() -> bool:
-    import os
-    cmd = os.environ.get("VIBECRAFT_QWEN_CMD", "qwen")
-    found = shutil.which(cmd) is not None
-
-    if found:
-        _row("Qwen CLI", cmd, True)
-    else:
-        _row(
-            "Qwen CLI",
-            cmd,
-            False,
-            "Not found on PATH. Set VIBECRAFT_BACKEND=clipboard for dry-run mode.",
-            warning_only=True,   # not fatal if using clipboard backend
-        )
-    return True   # Qwen is optional if using another backend
 
 
 def _check_project_structure(root: Path) -> bool:
@@ -159,9 +139,9 @@ def _row(
     note: str = "",
     warning_only: bool = False,
 ):
-    icon   = "[green]✓[/green]" if ok else ("[yellow]⚠[/yellow]" if warning_only else "[red]✗[/red]")
+    icon   = "[green][OK][/green]" if ok else ("[yellow][WARN][/yellow]" if warning_only else "[red][FAIL][/red]")
     status = "[green]OK[/green]" if ok else ("[yellow]WARN[/yellow]" if warning_only else "[red]FAIL[/red]")
-    line   = f"  {icon}  [{category}] {item}  →  {status}"
+    line   = f"  {icon}  [{category}] {item}  ->  {status}"
     if note:
         line += f"  [dim]{note}[/dim]"
     console.print(line)

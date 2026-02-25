@@ -14,8 +14,8 @@ Flow per skill step:
   2. Build prompt (skill config + agent md + context files)
   3. Call LLM via adapter (streams output live)
   4. Save output to target path
-  5. If gate: human_approval → show output, ask y/n/edit/retry
-  6. On fail → loop back with max_retries
+  5. If gate: human_approval -> show output, ask y/n/edit/retry
+  6. On fail -> loop back with max_retries
   7. Update manifest after skill completes
 """
 
@@ -26,41 +26,22 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+from rich.console import Console
 
-from .adapters.factory import get_adapter
+from .adapters.clipboard_adapter import ClipboardAdapter
 from .context_manager import ContextManager
 
-CYAN   = "\033[96m"
-GREEN  = "\033[92m"
-YELLOW = "\033[93m"
-RED    = "\033[91m"
-BOLD   = "\033[1m"
-DIM    = "\033[2m"
-RESET  = "\033[0m"
-
-
-def _c(color: str, text: str) -> str:
-    return f"{color}{text}{RESET}"
-
-
-def _hr(width: int = 60) -> str:
-    return "─" * width
+console = Console()
 
 
 class SkillRunner:
-    def __init__(self, project_root: Path, dry_run: bool = False):
+    def __init__(self, project_root: Path):
         self.root        = project_root
         self.vc_dir      = project_root / ".vibecraft"
         self.docs_dir    = project_root / "docs"
         self.src_dir     = project_root / "src"
-        self.dry_run     = dry_run
         self.ctx_manager = ContextManager(project_root)
-
-        # FIX: use factory — adapter resolved from VIBECRAFT_BACKEND env var
-        # In dry_run mode force clipboard adapter regardless of env setting
-        if dry_run:
-            os.environ.setdefault("VIBECRAFT_BACKEND", "clipboard")
-        self.adapter = get_adapter(stream=True)
+        self.adapter     = ClipboardAdapter()
 
     # ------------------------------------------------------------------ #
     #  Public                                                              #
@@ -71,13 +52,11 @@ class SkillRunner:
         if skill is None:
             return
 
-        print(_c(BOLD + CYAN, f"\n{'═'*60}"))
-        print(_c(BOLD + CYAN, f"  Vibecraft ▸ {skill.get('name', skill_name)}"))
+        console.print(f"\n[bold cyan]{'='*60}[/bold cyan]")
+        console.print(f"[bold cyan]  Vibecraft > {skill.get('name', skill_name)}[/bold cyan]")
         if phase is not None:
-            print(_c(CYAN, f"  Phase {phase}"))
-        if self.dry_run:
-            print(_c(YELLOW, "  DRY-RUN mode — prompts only, no LLM calls"))
-        print(_c(BOLD + CYAN, f"{'═'*60}\n"))
+            console.print(f"[cyan]  Phase {phase}[/cyan]")
+        console.print(f"[bold cyan]{'='*60}[/bold cyan]\n")
 
         # Snapshot before making any changes (enables rollback)
         self._snapshot(skill_name)
@@ -93,12 +72,12 @@ class SkillRunner:
                 phase=phase,
             )
             if not ok:
-                print(_c(YELLOW, "\n  Skill aborted.\n"))
+                console.print("[yellow]\n  Skill aborted.\n[/yellow]")
                 return
 
         self.ctx_manager.complete_skill(skill_name, phase)
-        print(_c(BOLD + GREEN, f"\n  ✓ Skill '{skill_name}' complete.\n"))
-        print(_c(DIM, "  Run 'vibecraft status' to see updated progress.\n"))
+        console.print(f"\n[bold green]  [OK] Skill '{skill_name}' complete.[/bold green]")
+        console.print("[dim]  Run 'vibecraft status' to see updated progress.[/dim]\n")
 
     # ------------------------------------------------------------------ #
     #  Step execution                                                      #
@@ -122,26 +101,26 @@ class SkillRunner:
             if isinstance(step.get("on_fail"), dict) else 3
         )
 
-        print(_c(BOLD, f"  Step {step_number}/{total_steps}: {name}"))
-        print(_c(DIM,  f"  Agent: {agent}\n  {_hr()}"))
+        console.print(f"[bold]  Step {step_number}/{total_steps}: {name}[/bold]")
+        console.print(f"[dim]  Agent: {agent}\n  {'-'*60}[/dim]")
 
         prompt = self._build_step_prompt(step, skill, phase)
 
         # FIX: versioned prompt storage — timestamped, never overwritten
         self._save_prompt(name, prompt)
 
-        print(_c(CYAN, f"  ▶ Running {agent}...\n"))
-        print(_c(DIM, _hr()))
+        console.print(f"[cyan]  > Running {agent}...\n[/cyan]")
+        console.print(f"[dim]{'-'*60}[/dim]")
 
         try:
             response = self.adapter.call(prompt)
         except RuntimeError as e:
-            print(_c(RED, f"\n  ✗ Adapter error: {e}\n"))
+            console.print(f"[red]\n  [FAIL] Adapter error: {e}\n[/red]")
             return self._handle_error(
                 step, step_number, total_steps, skill, phase, retry_count, max_retries
             )
 
-        print(_c(DIM, f"\n  {_hr()}"))
+        console.print(f"\n[dim]{'-'*60}[/dim]")
 
         output_path = self._resolve_output_path(output, phase)
         if output_path:
@@ -178,53 +157,53 @@ class SkillRunner:
         retry_count: int,
         max_retries: int,
     ) -> bool:
-        print(f"\n{_c(BOLD + YELLOW, '  ⚠  GATE — Human approval required')}")
-        print(_c(DIM, _hr()))
+        console.print(f"\n[bold yellow]  [WARN]  GATE - Human approval required[/bold yellow]")
+        console.print(f"[dim]{'-'*60}[/dim]")
 
         if output_path:
             if output_path.is_dir():
                 files = [f for f in output_path.rglob("*") if f.is_file()]
-                print(_c(CYAN, f"\n  Generated {len(files)} file(s):"))
+                console.print(f"[cyan]\n  Generated {len(files)} file(s):[/cyan]")
                 for f in files:
-                    print(f"    {_c(DIM, str(f.relative_to(self.root)))}")
+                    console.print(f"    [dim]{f.relative_to(self.root)}[/dim]")
             elif output_path.is_file():
-                print(_c(CYAN, f"\n  Generated: {output_path.relative_to(self.root)}"))
+                console.print(f"[cyan]\n  Generated: {output_path.relative_to(self.root)}[/cyan]")
 
-        print(f"\n  {_c(BOLD, '[y]')} Approve  — continue")
-        print(f"  {_c(BOLD, '[n]')} Reject   — abort skill")
-        print(f"  {_c(BOLD, '[e]')} Edit     — open in $EDITOR, then continue")
-        print(f"  {_c(BOLD, '[r]')} Retry    — re-run this step  "
-              f"{_c(DIM, f'({retry_count}/{max_retries} retries used)')}\n")
+        console.print(f"\n  [bold][y][/bold] Approve  - continue")
+        console.print(f"  [bold][n][/bold] Reject   - abort skill")
+        console.print(f"  [bold][e][/bold] Edit     - open in $EDITOR, then continue")
+        console.print(f"  [bold][r][/bold] Retry    - re-run this step  "
+              f"[dim]({retry_count}/{max_retries} retries used)[/dim]\n")
 
         while True:
             try:
-                raw = input(_c(BOLD, "  Decision [y/n/e/r]: ")).strip().lower()
+                raw = input("  Decision [y/n/e/r]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
-                print()
+                console.print()
                 return False
 
             if raw in ("y", "yes", ""):
-                print(_c(GREEN, "\n  ✓ Approved — continuing.\n"))
+                console.print("[green]\n  [OK] Approved - continuing.\n[/green]")
                 return True
 
             elif raw in ("n", "no"):
-                print(_c(RED, "\n  ✗ Rejected — aborting skill.\n"))
+                console.print("[red]\n  [FAIL] Rejected - aborting skill.\n[/red]")
                 return False
 
             elif raw in ("e", "edit"):
                 self._open_in_editor(output_path)
-                print(_c(GREEN, "\n  ✓ Edit saved — continuing.\n"))
+                console.print("[green]\n  [OK] Edit saved - continuing.\n[/green]")
                 return True
 
             elif raw in ("r", "retry"):
                 if retry_count >= max_retries:
-                    print(_c(RED, f"\n  Max retries ({max_retries}) reached.\n"))
+                    console.print(f"[red]\n  Max retries ({max_retries}) reached.\n[/red]")
                     force = input(
-                        _c(YELLOW, "  Force approve anyway? [y/n]: ")
+                        "[yellow]  Force approve anyway? [y/n]: [/yellow]"
                     ).strip().lower()
                     return force in ("y", "yes")
 
-                print(_c(YELLOW, f"\n  Retrying ({retry_count + 1}/{max_retries})...\n"))
+                console.print(f"[yellow]\n  Retrying ({retry_count + 1}/{max_retries})...\n[/yellow]")
                 return self._run_step(
                     step=step,
                     step_number=step_number,
@@ -235,7 +214,7 @@ class SkillRunner:
                 )
 
             else:
-                print(_c(DIM, "  Enter y, n, e, or r."))
+                console.print("[dim]  Enter y, n, e, or r.[/dim]")
 
     # ------------------------------------------------------------------ #
     #  Prompt building                                                     #
@@ -338,30 +317,100 @@ class SkillRunner:
     def _resolve_output_path(self, output_str: str, phase: int | None) -> Path | None:
         if not output_str:
             return None
+        if "{phase}" in output_str and phase is None:
+            raise ValueError(
+                f"Skill requires --phase but none was provided. "
+                f"Run: vibecraft run implement --phase <N>"
+            )
         if phase is not None:
             output_str = output_str.replace("{phase}", str(phase))
         return self.root / output_str
+
+    def _extract_files_from_response(self, response: str, output_dir: Path) -> list[Path]:
+        """Parse LLM response and extract files from markdown code blocks.
+
+        Looks for patterns like:
+        ### filename.ts
+        ```typescript
+        // code
+        ```
+        or:
+        **`src/path/file.ts`**
+        ```
+        // code
+        ```
+        """
+        import re
+        created: list[Path] = []
+
+        # Pattern 1: ### filename then code block
+        pattern1 = re.compile(
+            r'###\s+[`"]?([^`\n"\']+)[`"]?\s*\n'   # ### filename
+            r'```(?:\w+)?\n(.*?)```',               # code block
+            re.DOTALL
+        )
+
+        # Pattern 2: **`filename`** then code block
+        pattern2 = re.compile(
+            r'\*\*`([^`]+)`\*\*\s*\n'              # **`filename`**
+            r'```(?:\w+)?\n(.*?)```',              # code block
+            re.DOTALL
+        )
+
+        # Try pattern 1 first
+        for match in pattern1.finditer(response):
+            filename_hint = match.group(1).strip().lstrip('./').replace('\\', '/')
+            code = match.group(2)
+            target = output_dir / filename_hint
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(code, encoding='utf-8')
+            created.append(target)
+            console.print(f"[dim]  Extracted -> {target.relative_to(self.root)}[/dim]")
+
+        # Then pattern 2
+        for match in pattern2.finditer(response):
+            filename_hint = match.group(1).strip().lstrip('./').replace('\\', '/')
+            code = match.group(2)
+            target = output_dir / filename_hint
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(code, encoding='utf-8')
+            created.append(target)
+            console.print(f"[dim]  Extracted -> {target.relative_to(self.root)}[/dim]")
+
+        if not created:
+            # Fallback: save as single output.md
+            target = output_dir / "output.md"
+            target.write_text(response, encoding='utf-8')
+            created.append(target)
+
+        return created
 
     def _save_output(self, response: str, output_path: Path, step: dict):
         constraint = step.get("constraint", {})
         immutable  = constraint.get("immutable") if isinstance(constraint, dict) else None
 
+        # If output is a directory, try to extract multiple files from response
         if output_path.suffix == "":
             output_path.mkdir(parents=True, exist_ok=True)
-            target = output_path / "output.md"
-        else:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            target = output_path
+            created = self._extract_files_from_response(response, output_path)
+            if len(created) == 1:
+                console.print(f"[dim]  Saved -> {created[0].relative_to(self.root)}[/dim]")
+            else:
+                console.print(f"[dim]  Saved {len(created)} files to -> {output_path.relative_to(self.root)}/[/dim]")
+            return
+
+        # Single file output
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Immutability guard
         if immutable:
             immutable_path = self.root / immutable
-            if immutable_path.exists() and self._is_inside(target, immutable_path):
-                print(_c(RED, f"\n  ✗ BLOCKED — {target} is inside immutable path: {immutable}\n"))
+            if immutable_path.exists() and self._is_inside(output_path, immutable_path):
+                console.print(f"[red]\n  [FAIL] BLOCKED - {output_path} is inside immutable path: {immutable}\n[/red]")
                 return
 
-        target.write_text(response, encoding="utf-8")
-        print(_c(DIM, f"  Saved → {target.relative_to(self.root)}"))
+        output_path.write_text(response, encoding="utf-8")
+        console.print(f"[dim]  Saved -> {output_path.relative_to(self.root)}[/dim]")
 
     def _is_inside(self, path: Path, parent: Path) -> bool:
         try:
@@ -380,7 +429,7 @@ class SkillRunner:
         ts       = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
         filename = f"{ts}_{step_name}.md"
         (prompts_dir / filename).write_text(prompt, encoding="utf-8")
-        print(_c(DIM, f"  Prompt → .vibecraft/prompts/{filename}\n"))
+        console.print(f"[dim]  Prompt -> .vibecraft/prompts/{filename}\n[/dim]")
 
     # ------------------------------------------------------------------ #
     #  Rollback snapshots                                                  #
@@ -398,9 +447,15 @@ class SkillRunner:
             for src in dirs_to_snap:
                 if src.exists():
                     shutil.copytree(src, dst / src.name, dirs_exist_ok=True)
-            print(_c(DIM, f"  Snapshot → .vibecraft/snapshots/{ts}_{skill_name}/\n"))
+
+            # Also snapshot manifest.json for full state restoration
+            manifest_src = self.vc_dir / "manifest.json"
+            if manifest_src.exists():
+                shutil.copy2(manifest_src, dst / "manifest.json")
+
+            console.print(f"[dim]  Snapshot -> .vibecraft/snapshots/{ts}_{skill_name}/\n[/dim]")
         except Exception as e:
-            print(_c(YELLOW, f"  ⚠ Snapshot failed (non-fatal): {e}\n"))
+            console.print(f"[yellow]  [WARN] Snapshot failed (non-fatal): {e}\n[/yellow]")
 
     # ------------------------------------------------------------------ #
     #  Editor                                                              #
@@ -413,10 +468,10 @@ class SkillRunner:
 
         target = path if path.is_file() else (path / "output.md")
         if not target.exists():
-            print(_c(YELLOW, f"  File not found: {target}"))
+            console.print(f"[yellow]  File not found: {target}[/yellow]")
             return
 
-        print(_c(DIM, f"  Opening in {editor}..."))
+        console.print(f"[dim]  Opening in {editor}...[/dim]")
         subprocess.run([editor, str(target)])
 
     # ------------------------------------------------------------------ #
@@ -427,10 +482,10 @@ class SkillRunner:
         self, step, step_number, total_steps, skill, phase, retry_count, max_retries
     ) -> bool:
         if retry_count >= max_retries:
-            print(_c(RED, "  Max retries reached. Aborting."))
+            console.print("[red]  Max retries reached. Aborting.[/red]")
             return False
         raw = input(
-            _c(YELLOW, f"  Retry? [y/n] ({retry_count}/{max_retries}): ")
+            "[yellow]  Retry? [y/n] ({retry_count}/{max_retries}): [/yellow]"
         ).strip().lower()
         if raw in ("y", "yes", ""):
             return self._run_step(
@@ -453,10 +508,10 @@ class SkillRunner:
             if p.exists():
                 return yaml.safe_load(p.read_text(encoding="utf-8"))
 
-        print(_c(RED, f"\n  Skill not found: '{skill_name}'\n"))
+        console.print(f"[red]\n  Skill not found: '{skill_name}'\n[/red]")
         skills = list((self.vc_dir / "skills").glob("*.yaml"))
         if skills:
-            print("  Available:")
+            console.print("  Available:")
             for s in skills:
-                print(f"    {_c(CYAN, s.stem)}")
+                console.print(f"    [cyan]{s.stem}[/cyan]")
         return None

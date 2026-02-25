@@ -16,10 +16,7 @@ console = Console()
 @click.group()
 def main():
     """
-    ╦  ╦╦╔╗ ╔═╗╔═╗╦═╗╔═╗╔═╗╔╦╗
-    ╚╗╔╝║╠╩╗║╣ ║  ╠╦╝╠═╣╠╣  ║
-     ╚╝ ╩╚═╝╚═╝╚═╝╩╚═╩ ╩╚   ╩
-
+    Vibecraft - Agent-driven development framework.
     Craft your project from a research idea.
     """
     pass
@@ -37,15 +34,14 @@ def main():
 @click.option("--output",   "-o", default=".", help="Output directory (default: current dir)")
 @click.option("--agents",   "-a", default=None, type=click.Path(),
               help="Optional path to agents.yaml for custom agent definitions")
-def init(research, stack, output, agents):
+@click.option("--force",    "-f", is_flag=True, default=False,
+              help="Overwrite existing project without prompting")
+def init(research, stack, output, agents, force):
     """Bootstrap a new Vibecraft project from research.md + stack.md."""
 
-    console.print(Panel.fit(
-        "[bold cyan]Vibecraft Init[/bold cyan]\n"
-        f"Research: [green]{research}[/green]\n"
-        f"Stack:    [green]{stack}[/green]",
-        border_style="cyan",
-    ))
+    console.print(f"[bold cyan]Vibecraft Init[/bold cyan]")
+    console.print(f"Research: [green]{research}[/green]")
+    console.print(f"Stack:    [green]{stack}[/green]")
 
     agents_path = Path(agents) if agents else None
 
@@ -54,6 +50,7 @@ def init(research, stack, output, agents):
         stack_path=Path(stack),
         output_dir=Path(output),
         custom_agents_path=agents_path,
+        force=force,
     )
 
     with console.status("[bold cyan]Analysing inputs and generating project..."):
@@ -75,16 +72,13 @@ def init(research, stack, output, agents):
 @click.argument("skill_name")
 @click.option("--phase", "-p", default=None, type=int,
               help="Phase number (for implement skill)")
-@click.option("--dry-run", "-d", is_flag=True, default=False,
-              help="Build prompt and copy to clipboard — no LLM call")
-def run(skill_name, phase, dry_run):
-    """Run a skill: calls LLM, streams output, gates on human approval.
+def run(skill_name, phase):
+    """Run a skill: builds prompt, copies to clipboard for manual LLM use.
 
     \b
     Examples:
       vibecraft run research
       vibecraft run implement --phase 1
-      vibecraft run design --dry-run     # clipboard only, no LLM
     """
 
     project_root = _find_project_root()
@@ -92,7 +86,7 @@ def run(skill_name, phase, dry_run):
         console.print("[red]Error: Not inside a Vibecraft project. Run vibecraft init first.[/red]")
         return
 
-    runner = SkillRunner(project_root, dry_run=dry_run)
+    runner = SkillRunner(project_root)
     runner.run(skill_name, phase=phase)
 
 

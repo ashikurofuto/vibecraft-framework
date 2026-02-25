@@ -21,6 +21,7 @@ CORE_AGENTS = [
     "architect",
     "planner",
     "plan_reviewer",
+    "pre_checker",
     "tdd_writer",
     "implementer",
     "code_reviewer",
@@ -56,11 +57,13 @@ class Bootstrapper:
         stack_path: Path,
         output_dir: Path,
         custom_agents_path: Path | None = None,
+        force: bool = False,
     ):
         self.research_path       = research_path
         self.stack_path          = stack_path
         self.output_dir          = output_dir.resolve()
         self.custom_agents_path  = custom_agents_path
+        self.force               = force
 
         self.research_content = research_path.read_text(encoding="utf-8")
         self.stack_content    = stack_path.read_text(encoding="utf-8")
@@ -76,6 +79,19 @@ class Bootstrapper:
     # ------------------------------------------------------------------
 
     def run(self):
+        # Check for existing project
+        manifest_path = self.output_dir / ".vibecraft" / "manifest.json"
+        if manifest_path.exists() and not self.force:
+            console.print("[yellow]⚠ Project already exists in this directory.[/yellow]")
+            try:
+                confirm = input("  Re-initialize? This will overwrite agents and skills. [y/N]: ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                console.print("[yellow]Init cancelled.[/yellow]")
+                raise SystemExit(0)
+            if confirm not in ("y", "yes"):
+                console.print("[yellow]Init cancelled.[/yellow]")
+                raise SystemExit(0)
+
         # Validate before doing anything
         self._validate_inputs()
 
@@ -127,7 +143,7 @@ class Bootstrapper:
     # ------------------------------------------------------------------
 
     def _build_context(self) -> dict:
-        project_name = self._extract_project_name()
+        project_name = self._extract_project_name() or self.research_path.stem.replace("_", " ").title()
         project_type = self._detect_project_type()
         stack_info   = self._parse_stack()
         agents       = self._resolve_agents(project_type)
@@ -152,14 +168,14 @@ class Bootstrapper:
             "phases_completed": [],
         }
 
-    def _extract_project_name(self) -> str:
+    def _extract_project_name(self) -> str | None:
         for line in self.research_content.splitlines():
             line = line.strip()
             if line.startswith("#"):
                 return line.lstrip("#").strip()
             if line.lower().startswith("project:"):
                 return line.split(":", 1)[1].strip()
-        return self.research_path.stem.replace("_", " ").title()
+        return None
 
     def _detect_project_type(self) -> list[str]:
         combined = (self.research_content + self.stack_content).lower()
@@ -169,7 +185,7 @@ class Bootstrapper:
     def _parse_stack(self) -> dict:
         result: dict[str, str] = {}
         for line in self.stack_content.splitlines():
-            line = line.strip().lstrip("*-").strip()
+            line = line.strip().lstrip("#*-").strip()
             if ":" in line:
                 key, _, value = line.partition(":")
                 key   = key.strip().lower().replace(" ", "_")
@@ -248,10 +264,29 @@ class Bootstrapper:
 
     def _copy_inputs(self, ctx: dict):
         docs = self.output_dir / "docs"
-        shutil.copy(self.research_path, docs / "research.md")
-        shutil.copy(self.stack_path,    docs / "stack.md")
-        console.print("  [dim]→ docs/research.md[/dim]")
-        console.print("  [dim]→ docs/stack.md[/dim]")
+
+        research_dest = docs / "research.md"
+        stack_dest    = docs / "stack.md"
+
+        def _safe_copy(src: Path, dst: Path, label: str):
+            """Copy file only if source differs from destination."""
+            if src.resolve() == dst.resolve():
+                console.print(f"  [dim]→ {label} (already in place, skipped)[/dim]")
+                return
+            if dst.exists() and not self.force:
+                console.print(f"  [yellow]  WARN: {dst.relative_to(self.output_dir)} already exists.[/yellow]")
+                try:
+                    answer = input(f"  Overwrite {dst.name}? [y/N]: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    answer = "n"
+                if answer not in ("y", "yes"):
+                    console.print(f"  [dim]→ {label} (kept existing)[/dim]")
+                    return
+            shutil.copy(src, dst)
+            console.print(f"  [dim]→ {label}[/dim]")
+
+        _safe_copy(self.research_path, research_dest, "docs/research.md")
+        _safe_copy(self.stack_path,    stack_dest,    "docs/stack.md")
 
         # Copy custom agents config if provided
         if self.custom_agents_path and self.custom_agents_path.exists():

@@ -70,19 +70,35 @@ class ContextManager:
     # FIX: _next_phase — properly maps phases_completed entries to
     # logical phase names before comparing with phases list.
     # Previously "research_skill" ≠ "research" → phase never advanced.
+    # Also: implement phase only completes when all sub-phases done or explicitly marked.
     # ------------------------------------------------------------------
 
     def _next_phase(self, manifest: dict) -> str:
         completed_logical: set[str] = set()
+        implement_phases_done: set[str] = set()
 
         for entry in manifest.get("phases_completed", []):
-            if entry.startswith("implement"):
+            if entry.startswith("implement_phase_"):
+                # Extract phase number: implement_phase_1 → "1"
+                phase_num = entry.split("_")[-1]
+                implement_phases_done.add(phase_num)
+            elif entry == "implement":
+                # Explicitly marked as complete (e.g. from older versions)
                 completed_logical.add("implement")
             elif entry in _SKILL_TO_PHASE:
                 completed_logical.add(_SKILL_TO_PHASE[entry])
             else:
                 # Fallback: entry might already be a raw phase name
                 completed_logical.add(entry)
+
+        # implement is only complete if:
+        # 1. Explicitly marked as "implement" in completed_logical, OR
+        # 2. total_implement_phases is set and all phases are done
+        total_phases = manifest.get("total_implement_phases", 0)
+        if total_phases > 0 and len(implement_phases_done) >= total_phases:
+            completed_logical.add("implement")
+        # If total_implement_phases is not set (0), implement only completes
+        # when explicitly marked as "implement" in phases_completed
 
         for phase in manifest.get("phases", []):
             if phase not in completed_logical:
@@ -127,11 +143,12 @@ class ContextManager:
         tmpl = env.get_template("context.md.j2")
         adrs = self._extract_adrs()
 
-        content = tmpl.render(
-            **manifest,
-            adrs=adrs,
-            updated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        )
+        # Create a copy to avoid modifying the original
+        render_ctx = dict(manifest)
+        render_ctx["adrs"] = adrs
+        render_ctx["updated_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+        content = tmpl.render(**render_ctx)
         (self.docs_dir / "context.md").write_text(content, encoding="utf-8")
 
     # ------------------------------------------------------------------

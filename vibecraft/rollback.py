@@ -112,6 +112,13 @@ class RollbackManager:
                 console.print(f"  [green]✓[/green] Restored {subdir}/")
                 restored += 1
 
+        # Restore manifest.json for complete state restoration
+        snap_manifest = snap / "manifest.json"
+        if snap_manifest.exists():
+            shutil.copy2(snap_manifest, self.root / ".vibecraft" / "manifest.json")
+            console.print("  [green]✓[/green] Restored manifest.json")
+            restored += 1
+
         if restored == 0:
             console.print("[yellow]Nothing was restored — snapshot appears empty.[/yellow]")
             return False
