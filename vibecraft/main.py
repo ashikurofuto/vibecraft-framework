@@ -8,7 +8,7 @@ importing and running the CLI.
 import os
 import sys
 
-
+# Apply Windows encoding fix before importing CLI
 def _setup_windows_encoding():
     """Configure UTF-8 encoding for Windows consoles."""
     if sys.platform == "win32":
@@ -28,6 +28,7 @@ def _setup_windows_encoding():
 # Apply fixes before importing CLI
 _setup_windows_encoding()
 
+# Import CLI after encoding setup
 from vibecraft.cli import main
 
 if __name__ == "__main__":

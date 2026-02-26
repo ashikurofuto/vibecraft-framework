@@ -6,7 +6,7 @@ and clipboard copy for new chat sessions.
 import json
 import re
 import pyperclip
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
@@ -52,7 +52,7 @@ class ContextManager:
         if key not in manifest["phases_completed"]:
             manifest["phases_completed"].append(key)
         manifest["current_phase"] = self._next_phase(manifest)
-        manifest["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        manifest["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         self.save_manifest(manifest)
         self._rebuild_context_md(manifest)
 
@@ -62,7 +62,7 @@ class ContextManager:
         if phase_name not in manifest["phases_completed"]:
             manifest["phases_completed"].append(phase_name)
         manifest["current_phase"] = self._next_phase(manifest)
-        manifest["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        manifest["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         self.save_manifest(manifest)
         self._rebuild_context_md(manifest)
 
@@ -146,7 +146,7 @@ class ContextManager:
         # Create a copy to avoid modifying the original
         render_ctx = dict(manifest)
         render_ctx["adrs"] = adrs
-        render_ctx["updated_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        render_ctx["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
         content = tmpl.render(**render_ctx)
         (self.docs_dir / "context.md").write_text(content, encoding="utf-8")

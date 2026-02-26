@@ -1,0 +1,23 @@
+{
+  "modules": [
+    {%- if modules is defined and modules %}
+    {%- for module in modules %}
+    {%- if loop.index > 1 %},{% endif %}
+      {
+        "name": "{{ module.name }}",
+        "path": "{{ module.path }}",
+        "status": "{{ module.status | default('planned') }}"
+      }
+    {%- endfor %}
+    {%- endif %}
+  ],
+  "dependencies": {
+    {%- if dependencies is defined and dependencies %}
+    {%- for module, deps in dependencies.items() %}
+    {%- if loop.index > 1 %},{% endif %}
+      "{{ module }}": {{ deps | tojson }}
+    {%- endfor %}
+    {%- endif %}
+  },
+  "build_order": {{ build_order | default([]) | tojson }}
+}

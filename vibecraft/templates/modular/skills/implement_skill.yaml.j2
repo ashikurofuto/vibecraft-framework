@@ -1,0 +1,120 @@
+name: implement_skill_modular
+description: TDD implementation cycle for a specific module - RED -> GREEN
+
+agents:
+  - tdd_writer
+  - implementer
+  - code_reviewer
+
+inputs:
+  - phase: required
+  - module: required
+  - plan: modules/{module}/plans/phase_{phase}.md
+  - module_config: modules/{module}/.module.json
+  - module_context: modules/{module}/context.md
+  - stack: docs/stack.md
+  - context: docs/context.md
+  - architecture: docs/design/architecture.md
+  - registry: .vibecraft/modules-registry.json
+
+steps:
+  - name: load_module_context
+    description: >
+      Load module context from:
+      - modules/{module}/.module.json (configuration)
+      - modules/{module}/context.md (development context)
+      Verify module dependencies are satisfied.
+    output: module_context_loaded
+
+  - name: pre_check
+    agent: pre_checker
+    description: >
+      Before starting, verify:
+      1. Module directory exists: modules/{module}/
+      2. Module dependencies are initialized
+      3. Test runner is available
+      4. Output path is resolved to modules/{module}/src/
+    output: modules/{module}/plans/pre_check_phase_{phase}.md
+    gate: human_approval
+
+  - name: write_tests
+    agent: tdd_writer
+    description: >
+      Read the phase plan for module {module} and write all tests.
+      Output tests to modules/{module}/tests/phase_{phase}/.
+      Do not write any implementation code.
+      Tests must be runnable and expected to FAIL (RED).
+    output: modules/{module}/tests/phase_{phase}/
+    gate: human_approval
+
+  - name: run_red
+    agent: tdd_writer
+    description: >
+      PHASE RED: Run tests for module {module}.
+      Command: pytest modules/{module}/tests/phase_{phase}/ -v
+
+      Expected result: ALL TESTS FAIL (RED)
+      If any test passes before implementation - FLAG as incorrect.
+    output: modules/{module}/plans/red_result_phase_{phase}.md
+    gate: human_approval
+
+  - name: implement
+    agent: implementer
+    description: >
+      PHASE GREEN: Read the tests and implement the module.
+      Output implementation to modules/{module}/src/.
+      Follow the module's export interface from .module.json.
+      Do not modify any test files.
+    reads:
+      - modules/{module}/tests/phase_{phase}/
+    output: modules/{module}/src/
+    constraint:
+      immutable: modules/{module}/tests/
+    gate: human_approval
+
+  - name: run_green
+    agent: implementer
+    description: >
+      PHASE GREEN VERIFY: Run tests for module {module}.
+      Command: pytest modules/{module}/tests/phase_{phase}/ -v
+
+      Expected result: ALL TESTS PASS (GREEN)
+      If any test fails - loop back to implement step.
+    output: modules/{module}/plans/green_result_phase_{phase}.md
+    gate: human_approval
+
+  - name: update_registry
+    description: >
+      Update module status in .vibecraft/modules-registry.json:
+      - Mark phase {phase} as completed
+      - Update module status if all phases complete
+    output: .vibecraft/modules-registry.json
+
+  - name: review
+    agent: code_reviewer
+    description: >
+      Review the implementation for:
+      - Module interface compliance
+      - Dependency usage
+      - Test coverage
+      - Code quality
+    reads:
+      - modules/{module}/src/
+      - modules/{module}/tests/phase_{phase}/
+      - modules/{module}/.module.json
+    on_fail:
+      loop_back_to: implement
+      max_retries: 3
+
+constraints:
+  - "Module tests directory is immutable after tdd_writer approval"
+  - "Implementation must respect module's export interface"
+  - "Dependencies must be imported from other modules, not duplicated"
+  - "RED phase must come before implementation"
+  - "Module context.md must be updated after each phase"
+
+outputs:
+  - tests: modules/{module}/tests/phase_{phase}/
+  - implementation: modules/{module}/src/
+  - context_update: modules/{module}/context.md
+  - phase_result: modules/{module}/plans/green_result_phase_{phase}.md

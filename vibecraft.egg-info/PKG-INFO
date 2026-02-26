@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vibecraft
-Version: 0.3.0
+Version: 0.4.0
 Summary: Agent-driven development framework. Craft your project from a research idea.
 Author: Vibecraft Team
 Requires-Python: >=3.10
@@ -285,6 +285,95 @@ These are enforced at the agent level and should be enforced by you as the human
 - `v0.1` — init, run, status, context
 - `v0.2` — doctor, rollback, export, custom agents, prompt versioning
 - `v0.3` — clipboard-only workflow, improved installer, TDD RED/GREEN phases
-- `v0.4` — local project installation, PATH reliability fixes ← **current development**
+- `v0.4` — **Dual-Mode Architecture** (Simple + Modular), Module Management, Dependency Analysis, Integration Build ← **current release**
+
+---
+
+## Dual-Mode Architecture
+
+Vibecraft v0.4 supports two modes:
+
+### Simple Mode (default)
+
+Best for small projects (< 10 files, 1-2 developers):
+
+```bash
+vibecraft init -r research.md -s stack.md
+```
+
+All code goes to `src/`, single TDD cycle for the whole project.
+
+### Modular Mode
+
+Best for larger projects with modular architecture:
+
+```bash
+vibecraft init -r research.md -s stack.md --mode modular
+```
+
+Features:
+- **Module Management**: Create, list, init modules
+- **Dependency Analysis**: Validate dependencies, detect cycles
+- **Integration Build**: Generate interfaces and connectors
+- **Per-Module TDD**: Independent RED/GREEN cycles for each module
+
+#### Modular Mode Quick Start
+
+```bash
+# Create modules
+vibecraft module create database -d "Database layer"
+vibecraft module create auth -d "Authentication" --depends-on database
+vibecraft module create users -d "User management" --depends-on auth,database
+
+# List modules
+vibecraft module list
+
+# Initialize module structure
+vibecraft module init auth
+
+# Run skills for specific module
+vibecraft run implement --phase 1 --module auth
+
+# Analyze dependencies
+vibecraft integrate analyze
+
+# Build integration layer
+vibecraft integrate build
+```
+
+#### Module Structure
+
+```
+modules/
+├── database/
+│   ├── .module.json       # Module configuration
+│   ├── context.md         # Development context
+│   ├── src/               # Module source code
+│   ├── tests/             # Module tests
+│   └── plans/             # Phase plans
+├── auth/
+│   ├── .module.json
+│   ├── context.md
+│   ├── src/
+│   ├── tests/
+│   └── plans/
+└── users/
+    ├── .module.json
+    ├── context.md
+    ├── src/
+    ├── tests/
+    └── plans/
+
+integration/
+├── interfaces.py          # Auto-generated interfaces
+└── connectors/            # Module connectors
+```
+
+#### Documentation
+
+- [MODULAR_MODE.md](docs/MODULAR_MODE.md) — Full modular mode guide
+- [MODULE_DEVELOPMENT.md](docs/MODULE_DEVELOPMENT.md) — Module development workflow
+- [INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md) — Integration build guide
+- [MIGRATION_SIMPLE_TO_MODULAR.md](docs/MIGRATION_SIMPLE_TO_MODULAR.md) — Migration guide
 - `v0.5` — git hooks to enforce test immutability
 - `v0.6` — multi-project workspace support

@@ -4,6 +4,7 @@ import json
 import pytest
 from pathlib import Path
 from vibecraft.bootstrapper import Bootstrapper
+from vibecraft.modes.simple.bootstrapper import SimpleBootstrapper
 
 
 class TestParseStack:
@@ -123,16 +124,10 @@ class TestBootstrapperRun:
 
     def test_creates_directory_structure(self, tmp_path, research_file, stack_file):
         """Should create all required directories."""
-        output = tmp_path / "output"
-        output.mkdir()
-        b = Bootstrapper(
-            research_path=research_file,
-            stack_path=stack_file,
-            output_dir=output,
-            force=True,
-        )
+        b = _make_bootstrapper(tmp_path, research_file=research_file, stack_file=stack_file)
         b.run()
 
+        output = tmp_path / "output"
         assert (output / ".vibecraft" / "agents").exists()
         assert (output / ".vibecraft" / "skills").exists()
         assert (output / ".vibecraft" / "prompts").exists()
@@ -143,31 +138,19 @@ class TestBootstrapperRun:
 
     def test_copies_input_files(self, tmp_path, research_file, stack_file):
         """Should copy research.md and stack.md to docs/."""
-        output = tmp_path / "output"
-        output.mkdir()
-        b = Bootstrapper(
-            research_path=research_file,
-            stack_path=stack_file,
-            output_dir=output,
-            force=True,
-        )
+        b = _make_bootstrapper(tmp_path, research_file=research_file, stack_file=stack_file)
         b.run()
 
+        output = tmp_path / "output"
         assert (output / "docs" / "research.md").exists()
         assert (output / "docs" / "stack.md").exists()
 
     def test_generates_manifest(self, tmp_path, research_file, stack_file):
         """Should generate valid manifest.json."""
-        output = tmp_path / "output"
-        output.mkdir()
-        b = Bootstrapper(
-            research_path=research_file,
-            stack_path=stack_file,
-            output_dir=output,
-            force=True,
-        )
+        b = _make_bootstrapper(tmp_path, research_file=research_file, stack_file=stack_file)
         b.run()
 
+        output = tmp_path / "output"
         manifest_path = output / ".vibecraft" / "manifest.json"
         assert manifest_path.exists()
         manifest = json.loads(manifest_path.read_text())
@@ -180,16 +163,10 @@ class TestBootstrapperRun:
 
     def test_generates_agents(self, tmp_path, research_file, stack_file):
         """Should generate agent files."""
-        output = tmp_path / "output"
-        output.mkdir()
-        b = Bootstrapper(
-            research_path=research_file,
-            stack_path=stack_file,
-            output_dir=output,
-            force=True,
-        )
+        b = _make_bootstrapper(tmp_path, research_file=research_file, stack_file=stack_file)
         b.run()
 
+        output = tmp_path / "output"
         agents_dir = output / ".vibecraft" / "agents"
         assert agents_dir.exists()
         agent_files = list(agents_dir.glob("*.md"))
@@ -197,33 +174,38 @@ class TestBootstrapperRun:
 
     def test_generates_skills(self, tmp_path, research_file, stack_file):
         """Should generate skill YAML files."""
-        output = tmp_path / "output"
-        output.mkdir()
-        b = Bootstrapper(
-            research_path=research_file,
-            stack_path=stack_file,
-            output_dir=output,
-            force=True,
-        )
+        b = _make_bootstrapper(tmp_path, research_file=research_file, stack_file=stack_file)
         b.run()
 
+        output = tmp_path / "output"
         skills_dir = output / ".vibecraft" / "skills"
         assert skills_dir.exists()
         skill_files = list(skills_dir.glob("*.yaml"))
         assert len(skill_files) == 5  # research, design, plan, implement, review
 
 
-def _make_bootstrapper(tmp_path, research="# Test\nContent", stack="## Lang: TS"):
+def _make_bootstrapper(tmp_path, research="# Test\nContent", stack="## Lang: TS", research_file=None, stack_file=None):
     """Helper to create a Bootstrapper with minimal config."""
-    research_file = tmp_path / "research.md"
-    stack_file = tmp_path / "stack.md"
-    research_file.write_text(research)
-    stack_file.write_text(stack)
+    if research_file is None:
+        research_file = tmp_path / "research.md"
+        research_file.write_text(research)
+    if stack_file is None:
+        stack_file = tmp_path / "stack.md"
+        stack_file.write_text(stack)
     output = tmp_path / "output"
     output.mkdir(exist_ok=True)
-    return Bootstrapper(
+    
+    from vibecraft.core.config import VibecraftConfig, ProjectMode
+    
+    config = VibecraftConfig(
+        project_name="Test Project",
+        mode=ProjectMode.SIMPLE,
+    )
+    
+    return SimpleBootstrapper(
+        project_root=output,
+        config=config,
         research_path=research_file,
         stack_path=stack_file,
-        output_dir=output,
         force=True,
     )

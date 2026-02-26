@@ -1,0 +1,12 @@
+{
+  "mode": "{{ mode }}",
+  "version": "{{ version }}",
+  "project_name": "{{ project_name }}",
+  "project_type": {{ project_type | default('web') | tojson }},
+  "created_at": "{{ created_at | default('') }}",
+  "modular": {
+    "modules_dir": "{{ modules_dir | default('modules') }}",
+    "shared_dir": "{{ shared_dir | default('shared') }}",
+    "integration_dir": "{{ integration_dir | default('integration') }}"
+  }
+}

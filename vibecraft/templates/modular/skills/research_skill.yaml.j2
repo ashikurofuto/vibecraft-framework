@@ -1,0 +1,52 @@
+name: research_skill_modular
+description: Research phase for a specific module
+
+agents:
+  - researcher
+  - game_designer
+
+inputs:
+  - module: required
+  - module_config: modules/{module}/.module.json
+  - research: docs/research.md
+  - stack: docs/stack.md
+
+steps:
+  - name: load_module_info
+    description: >
+      Load module information from:
+      - modules/{module}/.module.json
+      - Module description and dependencies
+    output: module_info_loaded
+
+  - name: research
+    agent: researcher
+    description: >
+      Research the module domain:
+      1. Analyze module purpose from description
+      2. Research similar solutions and patterns
+      3. Identify key requirements
+      4. Document findings
+    output: modules/{module}/plans/research.md
+
+  - name: define_exports
+    agent: game_designer
+    description: >
+      Define module's public interface:
+      - List of exported classes/functions
+      - Dependencies on other modules
+      - Integration points
+    output: modules/{module}/.module.json
+
+  - name: create_context
+    description: >
+      Create initial module context:
+      - Module overview
+      - Key decisions
+      - Research summary
+    output: modules/{module}/context.md
+
+outputs:
+  - research: modules/{module}/plans/research.md
+  - config: modules/{module}/.module.json
+  - context: modules/{module}/context.md

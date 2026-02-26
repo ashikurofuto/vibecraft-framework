@@ -89,7 +89,7 @@ def run_setup():
     """Execute the setup."""
     setup(
         name="vibecraft",
-        version="0.3.0",
+        version="0.4.0",
         description="Agent-driven development framework. Craft your project from a research idea.",
         long_description=Path("README.md").read_text(encoding="utf-8"),
         long_description_content_type="text/markdown",
