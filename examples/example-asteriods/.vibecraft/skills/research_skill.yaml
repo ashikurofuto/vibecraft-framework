@@ -1,0 +1,22 @@
+name: research_skill
+description: Deeply analyse the project idea and produce a complete research document
+
+agents:
+  - researcher
+
+inputs:
+  - research: docs/research.md
+  - stack: docs/stack.md
+
+steps:
+  - name: research
+    agent: researcher
+    description: >
+      Read docs/research.md and expand it into a full research document.
+      Cover: problem statement, goals, non-goals, user stories, constraints,
+      risks, success criteria, and open questions.
+    output: docs/research.md
+
+constraints:
+  - "Do not make architecture or technology decisions — that is design_skill's job"
+  - "Focus on WHAT and WHY, not HOW"

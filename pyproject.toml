@@ -25,5 +25,12 @@ test = [
 [project.scripts]
 vibecraft = "vibecraft.main:main"
 
+[tool.setuptools]
+py-modules = []
+
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.vibecraft]
+# Post-install: adds Scripts to PATH on Windows
+auto_configure_path = true

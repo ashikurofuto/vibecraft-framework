@@ -1,0 +1,36 @@
+name: review_skill
+description: Final review — standards, security, architecture compliance, and correctness
+
+agents:
+  - code_reviewer
+  - performance_optimizer
+
+inputs:
+  - context: docs/context.md
+  - architecture: docs/design/architecture.md
+  - stack: docs/stack.md
+  - src: src/
+
+steps:
+  - name: final_review
+    agent: code_reviewer
+    description: >
+      Perform a comprehensive review of the entire codebase.
+      Check: architecture compliance, security, code quality,
+      test coverage, and alignment with docs/research.md goals.
+    reads:
+      - src/
+      - docs/design/architecture.md
+      - docs/research.md
+
+  - name: performance_review
+    agent: performance_optimizer
+    description: >
+      Review game loop performance, memory allocation patterns,
+      asset management, and frame-rate critical paths.
+    reads:
+      - src/
+
+constraints:
+  - "This is the final gate before the project is considered complete"
+  - "All critical issues must be resolved"

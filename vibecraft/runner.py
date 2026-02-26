@@ -122,7 +122,20 @@ class SkillRunner:
 
         console.print(f"\n[dim]{'-'*60}[/dim]")
 
-        output_path = self._resolve_output_path(output, phase)
+        # Handle output path — if list, use first item's directory
+        output_path = None
+        if output:
+            if isinstance(output, list):
+                # For multiple files, use the directory of the first file
+                first_output = output[0] if output else ""
+                if first_output:
+                    output_path = self._resolve_output_path(first_output, phase)
+                    # If it's a file path, get the parent directory
+                    if output_path.suffix:
+                        output_path = output_path.parent
+            else:
+                output_path = self._resolve_output_path(output, phase)
+        
         if output_path:
             self._save_output(response, output_path, step)
 
@@ -301,8 +314,14 @@ class SkillRunner:
         # Output path instruction
         output = step.get("output", "")
         if output:
-            resolved = self._resolve_output_path(output, phase)
-            parts.append(f"\n\n**Save your output to:** `{resolved}`")
+            if isinstance(output, list):
+                # Multiple output files
+                resolved_paths = [self._resolve_output_path(p, phase) for p in output]
+                paths_str = ", ".join(f"`{p}`" for p in resolved_paths)
+                parts.append(f"\n\n**Save your output to:** {paths_str}")
+            else:
+                resolved = self._resolve_output_path(output, phase)
+                parts.append(f"\n\n**Save your output to:** `{resolved}`")
 
         return "\n".join(parts)
 

@@ -21,8 +21,70 @@ Context is always documented so you can open a new chat at any phase.
 
 ## Install
 
+### Windows — Installation Options
+
+**Option 1: Global install (One-Click)**
+
+Double-click `install.bat` in the vibecraft-framework folder.
+
+This installs vibecraft globally and adds it to your PATH.
+
 ```bash
-pip install -e .
+# After installation, restart your terminal and verify:
+vibecraft --help
+```
+
+**Option 2: Global install (PowerShell or CMD)**
+
+```powershell
+# PowerShell
+cd vibecraft-framework
+.\install.ps1
+```
+
+```cmd
+REM Command Prompt
+cd vibecraft-framework
+python install.py
+```
+
+**Option 3: Local install (per-project, no admin required)**
+
+Installs vibecraft into your project directory (`.vibecraft-venv/`).
+
+```bash
+cd your-project
+python vibecraft-framework\install-to-project.py
+```
+
+Then use:
+```bash
+vibecraft-local.bat --help
+vibecraft-local.bat doctor
+```
+
+**Option 4: No installation (run with py launcher)**
+
+If you have Python installed, you can run without installation:
+
+```bash
+py -m vibecraft --help
+```
+
+Or use the included launcher:
+```bash
+vibecraft.bat --help
+```
+
+### Verify Installation
+
+```bash
+vibecraft doctor
+```
+
+Or for local installation:
+```bash
+vibecraft-local.bat doctor
 ```
 
 ---
@@ -35,7 +97,7 @@ pip install -e .
 vibecraft doctor
 ```
 
-Verifies Python version, required packages, Qwen CLI availability, and project structure.
+Verifies Python version, required packages, and project structure.
 
 ---
 
@@ -102,24 +164,15 @@ vibecraft run implement --phase 1
 vibecraft run review
 ```
 
-#### Dry-run mode (no LLM required)
+#### How it works
 
-If you want to use a different LLM (GPT, Claude, Gemini, etc.), use `--dry-run`:
+Vibecraft uses **clipboard-based workflow** by default:
+- Each step builds a prompt and copies it to your clipboard
+- Paste the prompt into any LLM (GPT, Claude, Gemini, etc.)
+- Copy the response back to vibecraft
+- Human approval gates ensure you control every step
 
-```bash
-vibecraft run design --dry-run
-```
-
-This builds the full prompt and copies it to your clipboard.
-Paste it into any chat interface manually.
-
-You can also set the backend via environment variable:
-
-```bash
-VIBECRAFT_BACKEND=clipboard vibecraft run design   # same as --dry-run
-VIBECRAFT_BACKEND=echo      vibecraft run design   # test stub
-VIBECRAFT_BACKEND=qwen      vibecraft run design   # default Qwen CLI
-```
+No LLM integration required — use any AI assistant you prefer!
 
 ---
 
@@ -204,15 +257,16 @@ These are enforced at the agent level and should be enforced by you as the human
 
 | Variable | Default | Description |
 |---|---|---|
-| `VIBECRAFT_BACKEND` | `qwen` | LLM backend: `qwen`, `clipboard`, `echo` |
-| `VIBECRAFT_QWEN_CMD` | `qwen` | Path/name of Qwen CLI binary |
 | `EDITOR` / `VISUAL` | `nano` | Editor opened by `[e]` at human gate |
+| `PYTHONIOENCODING` | `utf-8` | Console encoding (auto-set on Windows) |
 
 ---
 
 ## Roadmap
 
 - `v0.1` — init, run, status, context
-- `v0.2` — doctor, rollback, export, dry-run, adapter factory, custom agents, prompt versioning ← **current**
-- `v0.3` — git hooks to enforce test immutability
-- `v0.4` — multi-project workspace support
+- `v0.2` — doctor, rollback, export, custom agents, prompt versioning
+- `v0.3` — clipboard-only workflow, improved installer, TDD RED/GREEN phases
+- `v0.4` — local project installation, PATH reliability fixes ← **current development**
+- `v0.5` — git hooks to enforce test immutability
+- `v0.6` — multi-project workspace support

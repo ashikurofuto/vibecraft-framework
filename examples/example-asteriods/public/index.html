@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Asteroids Game - Classic arcade game in Vanilla JavaScript">
+    <title>Asteroids Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- HUD -->
+        <div id="hud">
+            <div id="score-container">
+                <span id="score-label">SCORE</span>
+                <span id="score">0</span>
+            </div>
+            <div id="high-score-container">
+                <span id="high-score-label">HIGH SCORE</span>
+                <span id="high-score">0</span>
+            </div>
+            <div id="lives-container">
+                <span id="lives-label">LIVES</span>
+                <span id="lives">3</span>
+            </div>
+            <div id="level-container">
+                <span id="level-label">LEVEL</span>
+                <span id="level">1</span>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="game-canvas" width="800" height="600"></canvas>
+
+        <!-- Menu Screen -->
+        <div id="menu" class="screen">
+            <h1>ASTEROIDS</h1>
+            <p class="subtitle">Classic Arcade Game</p>
+            <button id="start-button">START GAME</button>
+            <div class="controls-help">
+                <h3>Controls</h3>
+                <ul>
+                    <li><kbd>←</kbd> / <kbd>A</kbd> — Rotate Left</li>
+                    <li><kbd>→</kbd> / <kbd>D</kbd> — Rotate Right</li>
+                    <li><kbd>↑</kbd> / <kbd>W</kbd> — Thrust</li>
+                    <li><kbd>SPACE</kbd> — Fire</li>
+                    <li><kbd>P</kbd> — Pause</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pause" class="screen hidden">
+            <h2>PAUSED</h2>
+            <p>Press <kbd>P</kbd> to resume</p>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over" class="screen hidden">
+            <h2>GAME OVER</h2>
+            <p>Final Score: <span class="final-score">0</span></p>
+            <p>High Score: <span class="high-score">0</span></p>
+            <button id="restart-button">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+[console_scripts]
+vibecraft = vibecraft.main:main

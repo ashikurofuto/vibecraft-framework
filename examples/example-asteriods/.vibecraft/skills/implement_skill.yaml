@@ -1,0 +1,97 @@
+name: implement_skill
+description: TDD implementation cycle - RED -> GREEN for a single phase
+
+agents:
+  - tdd_writer
+  - implementer
+  - code_reviewer
+
+inputs:
+  - phase: required
+  - plan: docs/plans/phase_{phase}.md
+  - stack: docs/stack.md
+  - context: docs/context.md
+  - architecture: docs/design/architecture.md
+
+steps:
+  - name: pre_check
+    agent: pre_checker
+    description: >
+      Before starting, verify:
+      1. All dependencies from docs/stack.md are installed (run the relevant install command).
+      2. The test runner is available and configured.
+      3. The src/ directory structure matches the architecture.
+      Report each check as PASS or FAIL.
+      If any check FAILs, list the fix command and stop.
+    output: docs/plans/pre_check_phase_{phase}.md
+    gate: human_approval
+
+  - name: write_tests
+    agent: tdd_writer
+    description: >
+      Read the phase plan and write all tests for this phase.
+      Output tests to src/tests/phase_{phase}/.
+      Do not write any implementation code.
+      Tests must be runnable and expected to FAIL (RED) before implementation.
+    output: src/tests/phase_{phase}/
+    gate: human_approval
+
+  - name: run_red
+    agent: tdd_writer
+    description: >
+      PHASE RED: The tests you wrote must now be run.
+      Paste this command into your terminal and run it.
+      ALL tests must FAIL - this confirms the tests are correctly testing
+      missing functionality, not passing vacuously.
+
+      Expected result: ALL TESTS FAIL (RED)
+      If any test passes before implementation - FLAG it as incorrect.
+    output: docs/plans/red_result_phase_{phase}.md
+    gate: human_approval
+
+  - name: implement
+    agent: implementer
+    description: >
+      PHASE GREEN: Read the tests in src/tests/phase_{phase}/ and write
+      implementation that makes them pass. Do not modify any test files.
+      Follow the architecture from docs/design/architecture.md.
+      After implementing, specify the command to run tests.
+    reads:
+      - src/tests/phase_{phase}/
+    output: src/
+    constraint:
+      immutable: src/tests/
+    gate: human_approval
+
+  - name: run_green
+    agent: implementer
+    description: >
+      PHASE GREEN VERIFY: Run the tests now.
+      ALL tests must PASS (GREEN).
+      Paste the test command into your terminal and confirm the result.
+
+      Expected result: ALL TESTS PASS (GREEN)
+      If any test fails - loop back to implement step.
+    output: docs/plans/green_result_phase_{phase}.md
+    gate: human_approval
+
+  - name: review
+    agent: code_reviewer
+    description: >
+      Review the implementation for quality, security,
+      architecture compliance and test integrity.
+      Verify that test files were NOT modified by the implementer.
+    reads:
+      - src/
+      - src/tests/phase_{phase}/
+      - docs/design/architecture.md
+    on_fail:
+      loop_back_to: implement
+      max_retries: 3
+
+constraints:
+  - "src/tests/ is immutable after tdd_writer approval"
+  - "implementer must not modify test files under any circumstances"
+  - "RED phase must come before implementation - tests must fail first"
+  - "GREEN phase must be confirmed before review"
+  - "all ADR decisions in docs/design/architecture.md must be followed"
