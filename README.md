@@ -1,40 +1,47 @@
-# Vibecraft 🛠️
+<div align="center">
 
-> Craft your project from a research idea.
+# 🛠️ Vibecraft
 
-Agent-driven development framework that bootstraps a complete project workspace
-from two files: `research.md` and `stack.md`.
+### *Craft your project from a research idea.*
+
+Agent-driven development framework that bootstraps a complete project workspace from just two files: `research.md` and `stack.md`.
+
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-v0.4_dev-orange?style=flat-square)]()
+
+</div>
 
 ---
 
-## Philosophy
+## 🧠 Philosophy
 
 ```
 research → design → plan → implement (TDD) → review
 ```
 
-Each phase is driven by specialised agents.
-Skills orchestrate which agents run and in what order.
-Context is always documented so you can open a new chat at any phase.
+Each phase is driven by **specialised agents**. Skills orchestrate which agents run and in what order. Context is always documented so you can open a new chat at any phase.
 
 ---
 
-## Install
+## ⚡ Install
 
-### Windows — Installation Options
+### Windows
 
-**Option 1: Global install (One-Click)**
+<details>
+<summary><b>Option 1 — One-Click Global Install</b> (recommended)</summary>
 
-Double-click `install.bat` in the vibecraft-framework folder.
-
-This installs vibecraft globally and adds it to your PATH.
+Double-click `install.bat` in the vibecraft-framework folder. This installs vibecraft globally and adds it to your PATH.
 
 ```bash
 # After installation, restart your terminal and verify:
 vibecraft --help
 ```
 
-**Option 2: Global install (PowerShell or CMD)**
+</details>
+
+<details>
+<summary><b>Option 2 — PowerShell or CMD</b></summary>
 
 ```powershell
 # PowerShell
@@ -48,7 +55,10 @@ cd vibecraft-framework
 python install.py
 ```
 
-**Option 3: Local install (per-project, no admin required)**
+</details>
+
+<details>
+<summary><b>Option 3 — Local Install</b> (per-project, no admin required)</summary>
 
 Installs vibecraft into your project directory (`.vibecraft-venv/`).
 
@@ -63,9 +73,10 @@ vibecraft-local.bat --help
 vibecraft-local.bat doctor
 ```
 
-**Option 4: No installation (run with py launcher)**
+</details>
 
-If you have Python installed, you can run without installation:
+<details>
+<summary><b>Option 4 — No Install</b> (run with py launcher)</summary>
 
 ```bash
 py -m vibecraft --help
@@ -76,22 +87,19 @@ Or use the included launcher:
 vibecraft.bat --help
 ```
 
-### Verify Installation
+</details>
+
+### ✅ Verify Installation
 
 ```bash
 vibecraft doctor
 ```
 
-Or for local installation:
-```bash
-vibecraft-local.bat doctor
-```
-
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Check your environment first
+### 1️⃣ Check your environment
 
 ```bash
 vibecraft doctor
@@ -101,60 +109,60 @@ Verifies Python version, required packages, and project structure.
 
 ---
 
-### 2. Create your input files
+### 2️⃣ Create your input files
 
-**`research.md`** — describe your project idea, goals, users, risks.
+| File | Purpose |
+|------|---------|
+| `research.md` | Describe your project idea, goals, users, and risks |
+| `stack.md` | Define your technology choices and architecture principles |
 
-**`stack.md`** — define your technology choices and architecture principles.
-
-See `examples/` for reference files.
+> 💡 See the `examples/` folder for reference files.
 
 ---
 
-### 3. Initialise the project
+### 3️⃣ Initialise the project
 
 ```bash
 vibecraft init --research research.md --stack stack.md
 ```
 
-Optional: add custom agents via `--agents`:
-
+With custom agents:
 ```bash
 vibecraft init --research research.md --stack stack.md --agents examples/custom_agents.yaml
 ```
 
-This generates:
+This generates the following workspace:
 
 ```
-.vibecraft/
-├── manifest.json          # project state
-├── agents/                # agents tailored to your stack
+📁 .vibecraft/
+├── 📄 manifest.json          # project state
+├── 📁 agents/                # agents tailored to your stack
 │   ├── tdd_writer.md
 │   ├── implementer.md
 │   └── ...
-├── skills/
+├── 📁 skills/
 │   ├── research_skill.yaml
 │   ├── design_skill.yaml
 │   ├── plan_skill.yaml
 │   ├── implement_skill.yaml
 │   └── review_skill.yaml
-├── prompts/               # versioned prompt history (timestamped)
-└── snapshots/             # rollback snapshots per skill run
+├── 📁 prompts/               # versioned prompt history (timestamped)
+└── 📁 snapshots/             # rollback snapshots per skill run
 
-docs/
-├── context.md             # paste this into any new chat
-├── research.md
-├── stack.md
-├── design/
-└── plans/
+📁 docs/
+├── 📄 context.md             # paste this into any new chat
+├── 📄 research.md
+├── 📄 stack.md
+├── 📁 design/
+└── 📁 plans/
 
-src/
-└── tests/                 # sacred — tdd_writer only
+📁 src/
+└── 📁 tests/                 # sacred — tdd_writer only
 ```
 
 ---
 
-### 4. Run a skill
+### 4️⃣ Run a skill
 
 ```bash
 vibecraft run research
@@ -164,19 +172,18 @@ vibecraft run implement --phase 1
 vibecraft run review
 ```
 
-#### How it works
-
-Vibecraft uses **clipboard-based workflow** by default:
-- Each step builds a prompt and copies it to your clipboard
-- Paste the prompt into any LLM (GPT, Claude, Gemini, etc.)
-- Copy the response back to vibecraft
-- Human approval gates ensure you control every step
-
-No LLM integration required — use any AI assistant you prefer!
+> **How it works — Clipboard Workflow**
+>
+> Vibecraft uses a **clipboard-based workflow** by default — no LLM API key required!
+>
+> 1. Each step builds a prompt and copies it to your clipboard
+> 2. Paste the prompt into any LLM (GPT, Claude, Gemini, etc.)
+> 3. Copy the response back to vibecraft
+> 4. Human approval gates ensure you control every step
 
 ---
 
-### 5. Check project status
+### 5️⃣ Check project status
 
 ```bash
 vibecraft status
@@ -184,21 +191,20 @@ vibecraft status
 
 ---
 
-### 6. Continue in a new chat
+### 6️⃣ Continue in a new chat
 
 ```bash
 vibecraft context                        # copies context.md to clipboard
 vibecraft context --skill implement      # context + skill prompt
 ```
 
-Paste into a new LLM chat — the agent knows exactly where you are.
+Paste into a new LLM chat — the agent knows exactly where you left off.
 
 ---
 
-### 7. Roll back a skill run
+### 7️⃣ Roll back a skill run
 
-Every `vibecraft run` takes a snapshot before executing.
-To undo a run that produced bad output:
+Every `vibecraft run` takes a snapshot before executing, so you can always undo.
 
 ```bash
 vibecraft snapshots              # list available snapshots
@@ -209,16 +215,16 @@ vibecraft rollback design        # restore most recent 'design' snapshot
 
 ---
 
-### 8. Export the project
+### 8️⃣ Export the project
 
 ```bash
-vibecraft export                        # creates docs/project_summary.md
-vibecraft export --format zip           # creates a portable archive
+vibecraft export                  # creates docs/project_summary.md
+vibecraft export --format zip     # creates a portable archive
 ```
 
 ---
 
-## Custom Agents
+## 🤖 Custom Agents
 
 Define project-specific agents in `agents.yaml` (see `examples/custom_agents.yaml`):
 
@@ -236,37 +242,47 @@ Pass it to `init`:
 vibecraft init -r research.md -s stack.md --agents agents.yaml
 ```
 
-Agents matching any trigger keyword (from research.md or stack.md) are included automatically.
+Agents matching any trigger keyword from `research.md` or `stack.md` are included automatically.
 
 ---
 
-## TDD Rules
+## 🧪 TDD Rules
 
-These are enforced at the agent level and should be enforced by you as the human gate:
+These are enforced at the agent level and should be upheld at every human gate:
 
-| Rule | Who |
-|------|-----|
-| Only writes tests | `tdd_writer` |
-| Never modifies `src/tests/` | `implementer` |
-| Tests locked after your approval | You (human gate) |
-| Flags issues, doesn't fix tests | `implementer` |
+| Rule | Enforced By |
+|------|-------------|
+| ✅ Only writes tests | `tdd_writer` |
+| 🚫 Never modifies `src/tests/` | `implementer` |
+| 🔒 Tests locked after approval | **You** (human gate) |
+| 🚩 Flags issues, doesn't fix tests | `implementer` |
 
 ---
 
-## Environment Variables
+## 🔧 Environment Variables
 
 | Variable | Default | Description |
-|---|---|---|
+|----------|---------|-------------|
 | `EDITOR` / `VISUAL` | `nano` | Editor opened by `[e]` at human gate |
 | `PYTHONIOENCODING` | `utf-8` | Console encoding (auto-set on Windows) |
 
 ---
 
-## Roadmap
+## 📍 Roadmap
 
-- `v0.1` — init, run, status, context
-- `v0.2` — doctor, rollback, export, custom agents, prompt versioning
-- `v0.3` — clipboard-only workflow, improved installer, TDD RED/GREEN phases
-- `v0.4` — local project installation, PATH reliability fixes ← **current development**
-- `v0.5` — git hooks to enforce test immutability
-- `v0.6` — multi-project workspace support
+| Version | Status | Highlights |
+|---------|--------|------------|
+| `v0.1` | ✅ Released | `init`, `run`, `status`, `context` |
+| `v0.2` | ✅ Released | `doctor`, `rollback`, `export`, custom agents, prompt versioning |
+| `v0.3` | ✅ Released | Clipboard-only workflow, improved installer, TDD RED/GREEN phases |
+| `v0.4` | 🔄 **In Progress** | Local project installation, PATH reliability fixes |
+| `v0.5` | 🔜 Planned | Git hooks to enforce test immutability |
+| `v0.6` | 🔜 Planned | Multi-project workspace support |
+
+---
+
+<div align="center">
+
+Made with ❤️ for developers who think before they build.
+
+</div>
