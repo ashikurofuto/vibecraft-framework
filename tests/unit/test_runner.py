@@ -3,6 +3,11 @@
 import pytest
 from pathlib import Path
 from vibecraft.runner import SkillRunner
+from unittest.mock import patch, MagicMock
+
+# Constants for test configuration
+MAX_RETRIES = 3
+EXPECTED_SKILL_COUNT = 5  # research, design, plan, implement, review
 
 
 class TestResolveOutputPath:
@@ -25,6 +30,15 @@ class TestResolveOutputPath:
         runner = SkillRunner(tmp_project)
         with pytest.raises(ValueError, match="requires --phase"):
             runner._resolve_output_path("src/tests/phase_{phase}/", None)
+
+    def test_resolves_path_with_multiple_outputs_list(self, tmp_project):
+        """Should handle list of output paths."""
+        runner = SkillRunner(tmp_project)
+        output = ["src/file1.py", "src/file2.py"]
+        paths = [runner._resolve_output_path(p, None) for p in output]
+        assert len(paths) == 2
+        assert paths[0] == tmp_project / "src" / "file1.py"
+        assert paths[1] == tmp_project / "src" / "file2.py"
 
 
 class TestExtractFilesFromResponse:
@@ -112,16 +126,28 @@ export const b = 2;
 class TestSaveOutput:
     """Tests for _save_output."""
 
-    def test_saves_single_file(self, tmp_project, capsys):
-        """Should save response to single file."""
+    def test_saves_single_file(self, tmp_project):
+        """_save_output writes content to specified file."""
         runner = SkillRunner(tmp_project)
         output_path = tmp_project / "docs" / "output.md"
+        step = {}
 
-        runner._save_output("Test content", output_path, {})
+        runner._save_output("# Test content", output_path, step)
 
-        assert output_path.read_text() == "Test content"
+        assert output_path.exists()
+        assert output_path.read_text() == "# Test content"
 
-    def test_extracts_files_for_directory(self, tmp_project, capsys):
+    def test_creates_parent_directories(self, tmp_project):
+        """_save_output creates parent directories if needed."""
+        runner = SkillRunner(tmp_project)
+        output_path = tmp_project / "deep" / "nested" / "path" / "file.md"
+        step = {}
+
+        runner._save_output("# Content", output_path, step)
+
+        assert output_path.exists()
+
+    def test_extracts_files_for_directory(self, tmp_project):
         """Should extract files when output is directory."""
         runner = SkillRunner(tmp_project)
         output_dir = tmp_project / "output"
@@ -136,17 +162,22 @@ test();
 
         assert (output_dir / "test.ts").exists()
 
-    def test_respects_immutability_constraint(self, tmp_project, capsys):
-        """Should not save inside immutable path."""
+    def test_respects_immutability_constraint(self, tmp_project):
+        """_save_output blocks writes to immutable paths."""
         runner = SkillRunner(tmp_project)
-        output_path = tmp_project / "src" / "tests" / "test.ts"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Create immutable file
+        immutable = tmp_project / "src" / "tests" / "phase_1"
+        immutable.mkdir(parents=True, exist_ok=True)
+        (immutable / "test.py").write_text("# Locked")
 
-        step = {"constraint": {"immutable": "src/tests/"}}
-        runner._save_output("content", output_path, step)
+        output_path = tmp_project / "src" / "tests" / "phase_1" / "test.py"
+        step = {"constraint": {"immutable": "src/tests/phase_1"}}
 
-        # Should not have saved
-        assert not output_path.exists()
+        # Should not overwrite
+        runner._save_output("# New content", output_path, step)
+
+        # Original content should be preserved
+        assert (immutable / "test.py").read_text() == "# Locked"
 
 
 class TestLoadSkill:
@@ -176,13 +207,40 @@ class TestLoadSkill:
         assert skill is not None
         assert skill["name"] == "research_skill"
 
+    def test_loads_skill_from_yaml(self, tmp_project):
+        """_load_skill loads skill from YAML file."""
+        runner = SkillRunner(tmp_project)
+        skill_file = tmp_project / ".vibecraft" / "skills" / "test_skill.yaml"
+        skill_file.write_text("name: test_skill\nsteps: []\n")
+
+        skill = runner._load_skill("test_skill")
+
+        assert skill is not None
+        assert skill["name"] == "test_skill"
+
     def test_returns_none_for_missing_skill(self, tmp_project, capsys):
         """Should return None for non-existent skill."""
         runner = SkillRunner(tmp_project)
-        skill = runner._load_skill("nonexistent")
+
+        skill = runner._load_skill("nonexistent_skill")
+
         assert skill is None
         captured = capsys.readouterr()
-        assert "not found" in captured.out
+        assert "Skill not found" in captured.out
+
+    def test_lists_available_skills_when_not_found(self, tmp_project, capsys):
+        """_load_skill shows available skills when not found."""
+        runner = SkillRunner(tmp_project)
+        # Create a skill
+        (tmp_project / ".vibecraft" / "skills" / "existing_skill.yaml").write_text(
+            "name: existing"
+        )
+
+        runner._load_skill("missing_skill")
+
+        captured = capsys.readouterr()
+        assert "Available" in captured.out
+        assert "existing_skill" in captured.out
 
 
 class TestSnapshot:
@@ -226,3 +284,98 @@ class TestSnapshot:
 
         snap = snapshots[0]
         assert (snap / "manifest.json").exists()
+
+
+class TestIsInside:
+    """Tests for _is_inside helper method."""
+
+    def test_path_inside_parent(self, tmp_project):
+        """_is_inside returns True when path is within parent."""
+        runner = SkillRunner(tmp_project)
+        parent = tmp_project / "src" / "tests"
+        child = parent / "test.py"
+
+        assert runner._is_inside(child, parent) is True
+
+    def test_path_outside_parent(self, tmp_project):
+        """_is_inside returns False when path is outside parent."""
+        runner = SkillRunner(tmp_project)
+        parent = tmp_project / "src" / "tests"
+        outside = tmp_project / "docs" / "file.md"
+
+        assert runner._is_inside(outside, parent) is False
+
+
+class TestSavePrompt:
+    """Tests for _save_prompt method."""
+
+    def test_saves_prompt_with_timestamp(self, tmp_project):
+        """_save_prompt creates timestamped file in prompts directory."""
+        runner = SkillRunner(tmp_project)
+        prompt_content = "# Test Prompt"
+
+        runner._save_prompt("test_step", prompt_content)
+
+        prompts_dir = tmp_project / ".vibecraft" / "prompts"
+        assert prompts_dir.exists()
+        prompt_files = list(prompts_dir.glob("*.md"))
+        assert len(prompt_files) > 0
+        assert prompt_content in prompt_files[0].read_text()
+
+
+class TestOpenInEditor:
+    """Tests for _open_in_editor method."""
+
+    def test_opens_file_in_editor(self, tmp_project, monkeypatch):
+        """_open_in_editor calls subprocess with editor and file."""
+        runner = SkillRunner(tmp_project)
+        test_file = tmp_project / "test.md"
+        test_file.write_text("# Test")
+
+        # Mock subprocess and environment
+        monkeypatch.setenv("EDITOR", "test_editor")
+        with patch("vibecraft.modes.simple.runner.subprocess.run") as mock_run:
+            runner._open_in_editor(test_file)
+            mock_run.assert_called_once_with(["test_editor", str(test_file)])
+
+    def test_handles_missing_file(self, tmp_project, monkeypatch, capsys):
+        """_open_in_editor shows warning for missing file."""
+        runner = SkillRunner(tmp_project)
+        missing_file = tmp_project / "missing.md"
+
+        monkeypatch.setenv("EDITOR", "test_editor")
+        runner._open_in_editor(missing_file)
+
+        captured = capsys.readouterr()
+        assert "File not found" in captured.out
+
+    def test_uses_default_editor_when_env_not_set(self, tmp_project, monkeypatch):
+        """_open_in_editor uses 'nano' as default editor."""
+        # Remove EDITOR and VISUAL env vars
+        monkeypatch.delenv("EDITOR", raising=False)
+        monkeypatch.delenv("VISUAL", raising=False)
+
+        runner = SkillRunner(tmp_project)
+        test_file = tmp_project / "test.md"
+        test_file.write_text("# Test")
+
+        with patch("vibecraft.modes.simple.runner.subprocess.run") as mock_run:
+            runner._open_in_editor(test_file)
+            mock_run.assert_called_once_with(["nano", str(test_file)])
+
+
+class TestHandleError:
+    """Tests for _handle_error method."""
+
+    def test_returns_false_when_max_retries_reached(self, tmp_project):
+        """_handle_error returns False when retries exhausted."""
+        runner = SkillRunner(tmp_project)
+        step = {}
+
+        # Simulate max retries reached
+        result = runner._handle_error(
+            step=step, step_number=1, total_steps=3,
+            skill={}, phase=None, retry_count=MAX_RETRIES, max_retries=MAX_RETRIES
+        )
+
+        assert result is False

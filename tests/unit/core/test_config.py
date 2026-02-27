@@ -258,3 +258,226 @@ class TestModule:
         assert module.metadata is not None
         assert module.metadata["owner"] == "backend-team"
         assert module.metadata["priority"] == "high"
+
+
+class TestConfigBoundaryValues:
+    """Tests for boundary values and edge cases in configuration."""
+
+    def test_vibecraft_config_very_long_project_name(self):
+        """VibecraftConfig handles very long project names."""
+        # Arrange
+        long_name = "A" * 1000
+
+        # Act
+        config = VibecraftConfig(project_name=long_name)
+
+        # Assert
+        assert config.project_name == long_name
+
+    def test_vibecraft_config_unicode_project_name(self):
+        """VibecraftConfig handles Unicode project names."""
+        # Act
+        config = VibecraftConfig(project_name="Проект 模块モジュール")
+
+        # Assert
+        assert "Проект" in config.project_name
+
+    def test_vibecraft_config_project_name_with_spaces(self):
+        """VibecraftConfig trims leading/trailing spaces from project name."""
+        # Act
+        config = VibecraftConfig(project_name="   My Project   ")
+
+        # Assert
+        assert config.project_name == "My Project"
+
+    def test_vibecraft_config_project_name_internal_spaces(self):
+        """VibecraftConfig preserves internal spaces in project name."""
+        # Act
+        config = VibecraftConfig(project_name="My  Awesome   Project")
+
+        # Assert
+        assert config.project_name == "My  Awesome   Project"
+
+    def test_module_empty_description(self):
+        """Module accepts empty description."""
+        # Act
+        module = Module(name="auth", description="")
+
+        # Assert
+        assert module.description == ""
+
+    def test_module_very_long_description(self):
+        """Module handles very long descriptions."""
+        # Arrange
+        long_desc = "D" * 10000
+
+        # Act
+        module = Module(name="auth", description=long_desc)
+
+        # Assert
+        assert module.description == long_desc
+
+    def test_module_empty_dependencies_list(self):
+        """Module accepts empty dependencies list."""
+        # Act
+        module = Module(name="auth", dependencies=[])
+
+        # Assert
+        assert module.dependencies == []
+
+    def test_module_many_dependencies(self):
+        """Module handles many dependencies."""
+        # Arrange
+        many_deps = [f"dep{i}" for i in range(100)]
+
+        # Act
+        module = Module(name="auth", dependencies=many_deps)
+
+        # Assert
+        assert len(module.dependencies) == 100
+
+    def test_module_empty_exports_list(self):
+        """Module accepts empty exports list."""
+        # Act
+        module = Module(name="auth", exports=[])
+
+        # Assert
+        assert module.exports == []
+
+    def test_module_unicode_in_description(self):
+        """Module handles Unicode in description."""
+        # Act
+        module = Module(name="auth", description="Аутентификация 认证")
+
+        # Assert
+        assert "Аутентификация" in module.description
+
+    def test_modular_config_empty_modules_list(self):
+        """ModularConfig accepts empty modules list."""
+        # Act
+        config = ModularConfig(modules=[])
+
+        # Assert
+        assert config.modules == []
+
+    def test_modular_config_many_modules(self):
+        """ModularConfig handles many modules."""
+        # Arrange
+        many_modules = [f"mod{i}" for i in range(50)]
+
+        # Act
+        config = ModularConfig(modules=many_modules)
+
+        # Assert
+        assert len(config.modules) == 50
+
+    def test_modular_config_directory_name_with_underscore(self):
+        """ModularConfig accepts directory names with underscores."""
+        # Act
+        config = ModularConfig(modules_dir="my_modules")
+
+        # Assert
+        assert config.modules_dir == "my_modules"
+
+    def test_modular_config_directory_name_dot_dot(self):
+        """ModularConfig rejects directory name containing '..'."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Invalid directory name"):
+            ModularConfig(modules_dir="modules/../evil")
+
+    def test_modular_config_directory_name_empty(self):
+        """ModularConfig rejects empty directory name."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Invalid directory name"):
+            ModularConfig(modules_dir="")
+
+    def test_vibecraft_config_multiple_project_types_same(self):
+        """VibecraftConfig handles duplicate project types."""
+        # Act
+        config = VibecraftConfig(
+            project_name="Test",
+            project_type=[ProjectType.WEB, ProjectType.WEB],
+        )
+
+        # Assert - duplicates are preserved (Pydantic behavior)
+        assert len(config.project_type) == 2
+
+    def test_module_created_at_is_datetime(self):
+        """Module.created_at is a datetime object."""
+        # Act
+        module = Module(name="auth")
+
+        # Assert
+        from datetime import datetime
+        assert isinstance(module.created_at, datetime)
+
+    def test_vibecraft_config_created_at_is_datetime(self):
+        """VibecraftConfig.created_at is a datetime object."""
+        # Act
+        config = VibecraftConfig(project_name="Test")
+
+        # Assert
+        from datetime import datetime
+        assert isinstance(config.created_at, datetime)
+
+    def test_module_phases_completed_empty(self):
+        """Module accepts empty phases_completed list."""
+        # Act
+        module = Module(name="auth", phases_completed=[])
+
+        # Assert
+        assert module.phases_completed == []
+
+    def test_module_phases_completed_many_phases(self):
+        """Module handles many completed phases."""
+        # Arrange
+        many_phases = list(range(50))
+
+        # Act
+        module = Module(name="auth", phases_completed=many_phases)
+
+        # Assert
+        assert len(module.phases_completed) == 50
+
+    def test_vibecraft_config_default_version(self):
+        """VibecraftConfig has correct default version."""
+        # Act
+        config = VibecraftConfig(project_name="Test")
+
+        # Assert
+        assert config.version == "0.4.0"
+
+    def test_vibecraft_config_custom_version(self):
+        """VibecraftConfig accepts custom version."""
+        # Act
+        config = VibecraftConfig(
+            project_name="Test",
+            version="1.0.0-beta",
+        )
+
+        # Assert
+        assert config.version == "1.0.0-beta"
+
+    def test_module_name_single_character(self):
+        """Module accepts single character name."""
+        # Act
+        module = Module(name="a")
+
+        # Assert
+        assert module.name == "a"
+
+    def test_module_name_underscore_only(self):
+        """Module accepts underscore as name."""
+        # Act
+        module = Module(name="_")
+
+        # Assert
+        assert module.name == "_"
+
+    def test_module_name_dunder(self):
+        """Module accepts dunder names."""
+        # Act
+        module = Module(name="__init__")
+
+        # Assert
+        assert module.name == "__init__"

@@ -6,6 +6,9 @@ from pathlib import Path
 from vibecraft.bootstrapper import Bootstrapper
 from vibecraft.modes.simple.bootstrapper import SimpleBootstrapper
 
+# Constants for test configuration
+EXPECTED_SKILL_COUNT = 5  # research, design, plan, implement, review
+
 
 class TestParseStack:
     """Tests for _parse_stack - the most bug-prone method."""
@@ -181,10 +184,239 @@ class TestBootstrapperRun:
         skills_dir = output / ".vibecraft" / "skills"
         assert skills_dir.exists()
         skill_files = list(skills_dir.glob("*.yaml"))
-        assert len(skill_files) == 5  # research, design, plan, implement, review
+        assert len(skill_files) == EXPECTED_SKILL_COUNT
 
 
-def _make_bootstrapper(tmp_path, research="# Test\nContent", stack="## Lang: TS", research_file=None, stack_file=None):
+class TestLoadCustomAgents:
+    """Tests for _load_custom_agents method."""
+
+    def test_load_custom_agents_with_valid_file(self, tmp_path):
+        """Should load custom agents from valid YAML file."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: custom_agent
+  description: Custom test agent
+  triggers: ["test", "custom"]
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "test project"
+        b.stack_content = "Python"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "custom_agent" in result
+        assert "researcher" in result
+
+    def test_load_custom_agents_with_no_triggers(self, tmp_path):
+        """Should load custom agents without triggers (always included)."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: always_included_agent
+  description: Agent without triggers
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "anything"
+        b.stack_content = "anything"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "always_included_agent" in result
+
+    def test_load_custom_agents_with_non_matching_triggers(self, tmp_path):
+        """Should not load agents with non-matching triggers."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: specific_agent
+  description: Agent with specific triggers
+  triggers: ["blockchain", "crypto"]
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "web development"
+        b.stack_content = "Python"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "specific_agent" not in result
+
+    def test_load_custom_agents_with_invalid_yaml(self, tmp_path, capsys):
+        """Should handle invalid YAML gracefully."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("invalid: yaml: content: [")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert result == ["researcher"]
+        captured = capsys.readouterr()
+        assert "Could not load custom agents" in captured.out
+
+    def test_load_custom_agents_with_non_list_data(self, tmp_path, capsys):
+        """Should handle non-list YAML data gracefully."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("name: single_agent")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert result == ["researcher"]
+        captured = capsys.readouterr()
+        assert "must be a list" in captured.out
+
+    def test_load_custom_agents_with_missing_name(self, tmp_path, capsys):
+        """Should skip entries without name."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- description: No name agent
+  triggers: ["test"]
+- name: valid_agent
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "test"
+        b.stack_content = "test"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "valid_agent" in result
+        # Entry without name should be skipped
+
+    def test_load_custom_agents_with_non_dict_entry(self, tmp_path):
+        """Should skip non-dict entries."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: valid_agent
+- just a string
+- 123
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "test"
+        b.stack_content = "test"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "valid_agent" in result
+        assert len([x for x in result if isinstance(x, (str, int)) and x in ["just a string", 123]]) == 0
+
+    def test_load_custom_agents_avoids_duplicates(self, tmp_path):
+        """Should not add duplicate agents."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: researcher
+  triggers: ["test"]
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "test"
+        b.stack_content = "test"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert result.count("researcher") == 1
+
+    def test_load_custom_agents_with_empty_triggers_list(self, tmp_path):
+        """Should include agent with empty triggers list."""
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("""
+- name: empty_trigger_agent
+  triggers: []
+""")
+        b = _make_bootstrapper(tmp_path, custom_agents_path=agents_file)
+        b.research_content = "anything"
+        b.stack_content = "anything"
+
+        result = b._load_custom_agents(["researcher"])
+
+        assert "empty_trigger_agent" in result
+
+
+class TestCopyInputs:
+    """Tests for _copy_inputs method."""
+
+    def test_copy_inputs_copies_research_and_stack(self, tmp_path):
+        """Should copy research.md and stack.md to docs/."""
+        research_file = tmp_path / "research.md"
+        research_file.write_text("# Research content\n\nThis is a detailed research document with enough content to pass validation.")
+        stack_file = tmp_path / "stack.md"
+        stack_file.write_text("# Stack\n\n## Language: Python\n## Framework: FastAPI")
+
+        b = _make_bootstrapper(
+            tmp_path,
+            research_file=research_file,
+            stack_file=stack_file,
+        )
+        b.run()
+
+        output = tmp_path / "output"
+        assert (output / "docs" / "research.md").read_text() == "# Research content\n\nThis is a detailed research document with enough content to pass validation."
+        assert (output / "docs" / "stack.md").read_text() == "# Stack\n\n## Language: Python\n## Framework: FastAPI"
+
+    def test_copy_inputs_copies_custom_agents(self, tmp_path):
+        """Should copy custom agents file if provided."""
+        research_file = tmp_path / "research.md"
+        research_file.write_text("# Research content\n\nThis is a detailed research document with enough content to pass validation.")
+        stack_file = tmp_path / "stack.md"
+        stack_file.write_text("# Stack\n\n## Language: Python\n## Framework: FastAPI")
+        agents_file = tmp_path / "agents.yaml"
+        agents_file.write_text("- name: custom")
+
+        b = _make_bootstrapper(
+            tmp_path,
+            research_file=research_file,
+            stack_file=stack_file,
+            custom_agents_path=agents_file,
+        )
+        b.run()
+
+        output = tmp_path / "output"
+        assert (output / ".vibecraft" / "custom_agents.yaml").exists()
+
+    def test_copy_inputs_skips_when_same_file(self, tmp_path, capsys):
+        """Should skip copying if source and destination are the same."""
+        output = tmp_path / "output"
+        output.mkdir()
+        docs = output / "docs"
+        docs.mkdir()
+        research_file = docs / "research.md"
+        research_file.write_text("# Research content\n\nThis is a detailed research document with enough content to pass validation.")
+        stack_file = docs / "stack.md"
+        stack_file.write_text("# Stack\n\n## Language: Python\n## Framework: FastAPI")
+
+        b = _make_bootstrapper(
+            tmp_path,
+            research_file=research_file,  # Same as destination
+            stack_file=stack_file,
+        )
+        b.project_root = output
+        b.run()
+
+        captured = capsys.readouterr()
+        assert "already in place" in captured.out or "skipped" in captured.out
+
+    def test_copy_inputs_with_force_flag(self, tmp_path):
+        """Should overwrite existing files when force=True."""
+        output = tmp_path / "output"
+        output.mkdir()
+        docs = output / "docs"
+        docs.mkdir()
+        (docs / "research.md").write_text("old content")
+        (docs / "stack.md").write_text("old stack")
+
+        research_file = tmp_path / "research.md"
+        research_file.write_text("# Research content\n\nThis is a detailed research document with enough content to pass validation.")
+        stack_file = tmp_path / "stack.md"
+        stack_file.write_text("# Stack\n\n## Language: Python\n## Framework: FastAPI")
+
+        b = _make_bootstrapper(
+            tmp_path,
+            research_file=research_file,
+            stack_file=stack_file,
+        )
+        b.project_root = output
+        b.force = True  # Should overwrite
+        b.run()
+
+        assert (docs / "research.md").read_text() == "# Research content\n\nThis is a detailed research document with enough content to pass validation."
+
+
+def _make_bootstrapper(tmp_path, research="# Test\nContent", stack="## Lang: TS", research_file=None, stack_file=None, custom_agents_path=None):
     """Helper to create a Bootstrapper with minimal config."""
     if research_file is None:
         research_file = tmp_path / "research.md"
@@ -194,18 +426,19 @@ def _make_bootstrapper(tmp_path, research="# Test\nContent", stack="## Lang: TS"
         stack_file.write_text(stack)
     output = tmp_path / "output"
     output.mkdir(exist_ok=True)
-    
+
     from vibecraft.core.config import VibecraftConfig, ProjectMode
-    
+
     config = VibecraftConfig(
         project_name="Test Project",
         mode=ProjectMode.SIMPLE,
     )
-    
+
     return SimpleBootstrapper(
         project_root=output,
         config=config,
         research_path=research_file,
         stack_path=stack_file,
+        custom_agents_path=custom_agents_path,
         force=True,
     )

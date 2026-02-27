@@ -35,9 +35,9 @@ class TestListSnapshots:
 class TestRollback:
     """Tests for rollback."""
 
-    def test_restores_docs_and_src(self, tmp_path):
+    def test_restores_docs_and_src(self, tmp_path, monkeypatch):
         """Should restore docs/ and src/ from snapshot."""
-        # Create project structure
+        # Arrange - Create project structure
         vc_dir = tmp_path / ".vibecraft"
         snapshots_dir = vc_dir / "snapshots"
         vc_dir.mkdir()
@@ -58,23 +58,21 @@ class TestRollback:
         (tmp_path / "docs" / "stack.md").write_text("Stack")
         (tmp_path / "src" / "main.ts").write_text("New code")
 
-        rm = RollbackManager(tmp_path)
-        # Auto-confirm by mocking input
-        import builtins
-        original_input = builtins.input
-        builtins.input = lambda *args: "y"
-        try:
-            rm.rollback("20250101T120000_design")
-        finally:
-            builtins.input = original_input
+        # Mock input to auto-confirm
+        monkeypatch.setattr("builtins.input", lambda *args: "y")
 
-        # Verify restoration
+        rm = RollbackManager(tmp_path)
+
+        # Act
+        rm.rollback("20250101T120000_design")
+
+        # Assert
         assert (tmp_path / "docs" / "research.md").read_text() == "Old research"
         assert (tmp_path / "src" / "main.ts").read_text() == "Old code"
 
-    def test_restores_manifest(self, tmp_path):
+    def test_restores_manifest(self, tmp_path, monkeypatch):
         """BUG-004 regression: Should restore manifest.json from snapshot."""
-        # Create project structure
+        # Arrange - Create project structure
         vc_dir = tmp_path / ".vibecraft"
         snapshots_dir = vc_dir / "snapshots"
         vc_dir.mkdir()
@@ -93,22 +91,22 @@ class TestRollback:
             "phases_completed": ["research", "design"]
         }))
 
-        rm = RollbackManager(tmp_path)
-        import builtins
-        original_input = builtins.input
-        builtins.input = lambda *args: "y"
-        try:
-            rm.rollback("20250101T120000_design")
-        finally:
-            builtins.input = original_input
+        # Mock input to auto-confirm
+        monkeypatch.setattr("builtins.input", lambda *args: "y")
 
-        # Verify manifest restoration
+        rm = RollbackManager(tmp_path)
+
+        # Act
+        rm.rollback("20250101T120000_design")
+
+        # Assert
         restored = json.loads(current_manifest.read_text())
         assert restored["current_phase"] == "design"
         assert restored["phases_completed"] == ["research"]
 
-    def test_cancels_on_negative_response(self, tmp_path):
+    def test_cancels_on_negative_response(self, tmp_path, monkeypatch):
         """Should cancel rollback on 'n' response."""
+        # Arrange
         snapshots_dir = tmp_path / ".vibecraft" / "snapshots"
         snapshots_dir.mkdir(parents=True)
         snap = snapshots_dir / "20250101T120000_design"
@@ -119,15 +117,15 @@ class TestRollback:
         (tmp_path / "docs").mkdir()
         (tmp_path / "docs" / "research.md").write_text("New research")
 
-        rm = RollbackManager(tmp_path)
-        import builtins
-        original_input = builtins.input
-        builtins.input = lambda *args: "n"
-        try:
-            result = rm.rollback("20250101T120000_design")
-        finally:
-            builtins.input = original_input
+        # Mock input to reject
+        monkeypatch.setattr("builtins.input", lambda *args: "n")
 
+        rm = RollbackManager(tmp_path)
+
+        # Act
+        result = rm.rollback("20250101T120000_design")
+
+        # Assert
         assert result is False
         # Should not have changed
         assert (tmp_path / "docs" / "research.md").read_text() == "New research"
@@ -138,22 +136,23 @@ class TestRollback:
         result = rm.rollback("nonexistent")
         assert result is False
 
-    def test_handles_empty_snapshot(self, tmp_path, capsys):
+    def test_handles_empty_snapshot(self, tmp_path, monkeypatch, capsys):
         """Should handle snapshot without docs/src."""
+        # Arrange
         snapshots_dir = tmp_path / ".vibecraft" / "snapshots"
         snapshots_dir.mkdir(parents=True)
         snap = snapshots_dir / "20250101T120000_empty"
         snap.mkdir()
 
-        rm = RollbackManager(tmp_path)
-        import builtins
-        original_input = builtins.input
-        builtins.input = lambda *args: "y"
-        try:
-            result = rm.rollback("20250101T120000_empty")
-        finally:
-            builtins.input = original_input
+        # Mock input to auto-confirm
+        monkeypatch.setattr("builtins.input", lambda *args: "y")
 
+        rm = RollbackManager(tmp_path)
+
+        # Act
+        result = rm.rollback("20250101T120000_empty")
+
+        # Assert
         assert result is False
 
 

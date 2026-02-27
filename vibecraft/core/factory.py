@@ -100,7 +100,7 @@ class BootstrapperFactory:
             return SimpleBootstrapper(**simple_kwargs)
         elif mode == ProjectMode.MODULAR:
             # For modular mode, import from modes.modular package
-            from vibecraft.modes.modular.bootstrapper import ModularBootstrapper
+            from vibecraft.modes.modular import ModularBootstrapper
             return ModularBootstrapper(
                 project_root=project_root,
                 config=config,

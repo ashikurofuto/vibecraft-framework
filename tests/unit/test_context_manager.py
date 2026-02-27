@@ -169,3 +169,123 @@ class TestPrintStatus:
         captured = capsys.readouterr()
         assert "research" in captured.out
         assert "current" in captured.out or "done" in captured.out
+
+
+class TestCompletePhase:
+    """Tests for complete_phase method."""
+
+    def test_completes_implement_phase(self, tmp_project):
+        """complete_phase adds implement_phase_N to phases_completed."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+        manifest = cm.load_manifest()
+        assert "implement_phase_1" not in manifest["phases_completed"]
+
+        # Act
+        cm.complete_phase(1)
+
+        # Assert
+        updated = cm.load_manifest()
+        assert "implement_phase_1" in updated["phases_completed"]
+
+    def test_updates_timestamp(self, tmp_project):
+        """complete_phase updates updated_at timestamp."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+
+        # Act
+        cm.complete_phase(1)
+
+        # Assert - timestamp should be set
+        updated = cm.load_manifest()
+        assert "updated_at" in updated
+        assert updated["updated_at"].endswith("Z")
+
+    def test_rebuilds_context_md(self, tmp_project):
+        """complete_phase rebuilds context.md."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+        context_path = tmp_project / "docs" / "context.md"
+        original_content = context_path.read_text()
+
+        # Act
+        cm.complete_phase(1)
+
+        # Assert - context.md should be updated
+        new_content = context_path.read_text()
+        assert new_content != original_content or "Implement Phase 1" in new_content
+
+
+class TestBuildAndCopy:
+    """Tests for build_and_copy method."""
+
+    def test_copies_context_to_clipboard(self, tmp_project, monkeypatch):
+        """build_and_copy copies context to clipboard."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+        copied_text = None
+
+        def mock_copy(text):
+            nonlocal copied_text
+            copied_text = text
+
+        monkeypatch.setattr("vibecraft.context_manager.pyperclip.copy", mock_copy)
+
+        # Act
+        cm.build_and_copy()
+
+        # Assert
+        assert copied_text is not None
+        assert "Tower Defense Game" in copied_text
+
+    def test_adds_skill_content_when_provided(self, tmp_project, monkeypatch):
+        """build_and_copy adds skill content when skill parameter provided."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+        # Create a skill file
+        skill_file = tmp_project / ".vibecraft" / "skills" / "test_skill.yaml"
+        skill_file.write_text("name: test_skill\nsteps: []\n")
+
+        copied_text = None
+        def mock_copy(text):
+            nonlocal copied_text
+            copied_text = text
+
+        monkeypatch.setattr("vibecraft.context_manager.pyperclip.copy", mock_copy)
+
+        # Act
+        cm.build_and_copy(skill="test")
+
+        # Assert
+        assert copied_text is not None
+        assert "test_skill" in copied_text
+
+    def test_warns_when_skill_not_found(self, tmp_project, monkeypatch, capsys):
+        """build_and_copy shows warning when skill file not found."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+        monkeypatch.setattr("vibecraft.context_manager.pyperclip.copy", lambda x: None)
+
+        # Act
+        cm.build_and_copy(skill="nonexistent")
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "Skill not found" in captured.out
+
+    def test_handles_clipboard_unavailable(self, tmp_project, monkeypatch, capsys):
+        """build_and_copy handles clipboard unavailable gracefully."""
+        # Arrange
+        cm = ContextManager(tmp_project)
+
+        def mock_copy_fail(text):
+            raise RuntimeError("Clipboard unavailable")
+
+        monkeypatch.setattr("vibecraft.context_manager.pyperclip.copy", mock_copy_fail)
+
+        # Act - should not raise
+        cm.build_and_copy()
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "Clipboard unavailable" in captured.out
